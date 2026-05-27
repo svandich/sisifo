@@ -28,7 +28,8 @@ export function escapeHtml(text: string): string {
 
 export function markdownToHtml(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/\*(.+?)\*/g, '<i>$1</i>')
-    .replace(/`(.+?)`/g, '<code>$1</code>');
+    .replace(/\*\*\*(.+?)\*\*\*/gs, '<b><i>$1</i></b>')
+    .replace(/\*\*(.+?)\*\*/gs, '<b>$1</b>')
+    .replace(/\*(.+?)\*/gs, '<i>$1</i>')
+    .replace(/`(.+?)`/gs, '<code>$1</code>');
 }
