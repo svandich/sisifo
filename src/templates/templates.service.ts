@@ -23,7 +23,8 @@ Enlace: {{contest_url}}`;
 // Simulacion public template — hides contest identity
 export const DEFAULT_SIMULACION_PUBLIC_TEMPLATE = `🏋️ **Simulación**
 Inicio: {{start_time}}
-Duración: {{duration}}`;
+Duración: {{duration}}
+🚨 **Recuerden colocar \`Virtual Participation\` a las {{start_time}}** 🚨`;
 
 @Injectable()
 export class TemplatesService {

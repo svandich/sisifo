@@ -136,7 +136,7 @@ export class AnnouncementsService {
         const includeIdentity = !isSimulacion || sub.adminOnly;
 
         if (sub.platform === 'discord') {
-          const tags = await this.categoryTags.buildDiscordMentions(announcement.categoryId, sub.guildId);
+          const tags = sub.guildId ? await this.categoryTags.buildDiscordMentions(announcement.categoryId, sub.guildId) : '';
           const discordVars = { ...buildDiscordVars(includeIdentity), tags };
           const template = isSimulacion
             ? (sub.adminOnly ? DEFAULT_SIMULACION_ADMIN_TEMPLATE : DEFAULT_SIMULACION_PUBLIC_TEMPLATE)
@@ -146,7 +146,7 @@ export class AnnouncementsService {
             : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, discordVars, normalFallback);
 
           const channel = await this.discordClient.channels.fetch(sub.chatId).catch(() => null);
-          if (channel instanceof TextChannel) await channel.send(discordMsg);
+          if (channel instanceof TextChannel) await channel.send(tags ? `${tags}\n${discordMsg}` : discordMsg);
         } else if (sub.platform === 'telegram') {
           const tags = await this.categoryTags.buildTelegramMentions(announcement.categoryId, sub.chatId);
           const telegramVars = { ...buildTelegramVars(includeIdentity), tags };

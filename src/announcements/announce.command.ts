@@ -125,13 +125,13 @@ export class AnnounceCommand implements ISlashCommand {
       // `cuando` = simulation start time; announcement fires 5min before
       if (!cuandoStr) {
         await interaction.editReply(
-          'Las simulaciones requieren el parámetro `cuando` con la hora de inicio de la simulación (ej: `2024-06-01T18:00:00Z` o `2h`).',
+          'Las simulaciones requieren el parámetro `cuando` con la hora de inicio de la simulación (ej: `18:00`, `2024-06-01T18:00:00Z` o `2h`).',
         );
         return;
       }
       const simStart = parseWhen(cuandoStr);
       if (!simStart) {
-        await interaction.editReply('Formato de tiempo inválido. Usa ISO 8601 (ej: `2024-06-01T18:00:00Z`) o relativo (ej: `2h`, `30m`).');
+        await interaction.editReply('Formato de tiempo inválido. Usa hora (`18:00`), ISO 8601 (`2024-06-01T18:00:00Z`) o relativo (`2h`, `30m`).');
         return;
       }
       simulationStartTime = simStart;
@@ -141,7 +141,7 @@ export class AnnounceCommand implements ISlashCommand {
       if (cuandoStr) {
         const parsed = parseWhen(cuandoStr);
         if (!parsed) {
-          await interaction.editReply('Formato de tiempo inválido. Usa ISO 8601 (ej: `2024-06-01T18:00:00Z`) o relativo (ej: `30m`, `2h`, `1d`).');
+          await interaction.editReply('Formato de tiempo inválido. Usa hora (`18:00`), ISO 8601 (`2024-06-01T18:00:00Z`) o relativo (`30m`, `2h`, `1d`).');
           return;
         }
         scheduledFor = parsed;
