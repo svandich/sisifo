@@ -9,6 +9,11 @@ Inicio: {{start_time}}
 Duración: {{duration}}
 Enlace: {{contest_url}}`;
 
+export const DEFAULT_VIRTUAL_TEMPLATE = `Contest de hoy: ***{{contest_url}}***
+
+🚨 **Recuerden colocar \`Virtual Participation\` a las {{vp_time}}** 🚨
+¡Éxito!`;
+
 // Simulacion admin template — shown only to adminOnly subscriptions
 export const DEFAULT_SIMULACION_ADMIN_TEMPLATE = `🔒 **Simulación: {{contest_name}}** ({{platform}})
 Inicio: {{start_time}}
@@ -58,10 +63,10 @@ export class TemplatesService {
     return content.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? `{{${key}}}`);
   }
 
-  async renderTemplate(guildId: string, templateName: string | null, variables: Record<string, string>): Promise<string> {
+  async renderTemplate(guildId: string, templateName: string | null, variables: Record<string, string>, fallback = DEFAULT_CONTEST_TEMPLATE): Promise<string> {
     const content = templateName
       ? (await this.findOne(guildId, templateName)).content
-      : DEFAULT_CONTEST_TEMPLATE;
+      : fallback;
     return this.render(content, variables);
   }
 }

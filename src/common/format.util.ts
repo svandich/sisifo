@@ -2,8 +2,16 @@ export function formatDate(date: Date): string {
   return `<t:${Math.floor(date.getTime() / 1000)}:F>`;
 }
 
+export function formatTime(date: Date): string {
+  return `<t:${Math.floor(date.getTime() / 1000)}:t>`;
+}
+
 export function formatDatePlain(date: Date): string {
   return date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+}
+
+export function formatTimePlain(date: Date): string {
+  return date.toISOString().slice(11, 16) + ' UTC';
 }
 
 export function formatDuration(seconds: number): string {

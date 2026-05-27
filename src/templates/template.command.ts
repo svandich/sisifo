@@ -134,6 +134,7 @@ export class TemplateCommand implements ISlashCommand {
         { name: '{{duration}}', value: 'Contest duration (e.g. 2h 30m)', inline: false },
         { name: '{{contest_url}}', value: 'Direct link to the contest page', inline: false },
         { name: '{{tags}}', value: 'Mentions of users/roles subscribed to be tagged for this category (empty string if none)', inline: false },
+        { name: '{{vp_time}}', value: 'Time the announcement fires — useful as the Virtual Participation start time for past-contest announcements', inline: false },
       );
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });

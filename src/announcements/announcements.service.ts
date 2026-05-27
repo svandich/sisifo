@@ -9,8 +9,8 @@ import { CategoriesService } from '../categories/categories.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { CategoryTagsService } from '../category-tags/category-tags.service';
-import { formatDate, formatDatePlain, formatDuration, markdownToHtml } from '../common/format.util';
-import { DEFAULT_SIMULACION_ADMIN_TEMPLATE, DEFAULT_SIMULACION_PUBLIC_TEMPLATE } from '../templates/templates.service';
+import { formatDate, formatDatePlain, formatDuration, formatTime, formatTimePlain, markdownToHtml } from '../common/format.util';
+import { DEFAULT_SIMULACION_ADMIN_TEMPLATE, DEFAULT_SIMULACION_PUBLIC_TEMPLATE, DEFAULT_VIRTUAL_TEMPLATE } from '../templates/templates.service';
 
 export interface ScheduleAnnouncementDto {
   scheduledByGuildId: string;
@@ -110,12 +110,17 @@ export class AnnouncementsService {
       const contestDurationSeconds = announcement.contestDurationSeconds;
       const platform = announcement.contestPlatform;
 
+      // VP = past contest where the announcement fires at or after the original contest start
+      const isVirtual = !isSimulacion && !!announcement.contestStartTime && announcement.contestStartTime <= announcement.scheduledFor;
+      const normalFallback = isVirtual ? DEFAULT_VIRTUAL_TEMPLATE : undefined;
+
       const buildDiscordVars = (includeIdentity: boolean) => ({
         contest_name: includeIdentity ? contestName : '???',
         platform: includeIdentity ? platform : '???',
         start_time: formatDate(isSimulacion ? simStart : contestStartTime),
         duration: formatDuration(contestDurationSeconds),
         contest_url: includeIdentity ? contestUrl : '',
+        vp_time: formatTime(announcement.scheduledFor),
       });
 
       const buildTelegramVars = (includeIdentity: boolean) => ({
@@ -124,6 +129,7 @@ export class AnnouncementsService {
         start_time: formatDatePlain(isSimulacion ? simStart : contestStartTime),
         duration: formatDuration(contestDurationSeconds),
         contest_url: includeIdentity ? contestUrl : '',
+        vp_time: formatTimePlain(announcement.scheduledFor),
       });
 
       for (const sub of subs) {
@@ -137,7 +143,7 @@ export class AnnouncementsService {
             : null;
           const discordMsg = isSimulacion
             ? this.templates.render(template!, discordVars)
-            : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, discordVars);
+            : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, discordVars, normalFallback);
 
           const channel = await this.discordClient.channels.fetch(sub.chatId).catch(() => null);
           if (channel instanceof TextChannel) await channel.send(discordMsg);
@@ -150,7 +156,7 @@ export class AnnouncementsService {
           const telegramMsg = markdownToHtml(
             isSimulacion
               ? this.templates.render(template!, telegramVars)
-              : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, telegramVars),
+              : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, telegramVars, normalFallback),
           );
           await this.telegram.send(sub.chatId, telegramMsg, sub.threadId ?? undefined);
         }
