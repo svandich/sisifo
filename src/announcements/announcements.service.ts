@@ -120,7 +120,7 @@ export class AnnouncementsService {
         start_time: formatDate(isSimulacion ? simStart : contestStartTime),
         duration: formatDuration(contestDurationSeconds),
         contest_url: includeIdentity ? contestUrl : '',
-        vp_time: formatTime(announcement.scheduledFor),
+        vp_time: formatTime(simStart),
       });
 
       const buildTelegramVars = (includeIdentity: boolean) => ({
@@ -129,7 +129,7 @@ export class AnnouncementsService {
         start_time: formatDatePlain(isSimulacion ? simStart : contestStartTime),
         duration: formatDuration(contestDurationSeconds),
         contest_url: includeIdentity ? contestUrl : '',
-        vp_time: formatTimePlain(announcement.scheduledFor),
+        vp_time: formatTimePlain(simStart),
       });
 
       for (const sub of subs) {

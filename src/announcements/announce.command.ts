@@ -137,14 +137,19 @@ export class AnnounceCommand implements ISlashCommand {
       simulationStartTime = simStart;
       scheduledFor = new Date(simStart.getTime() - FIVE_MINUTES);
     } else {
-      // Normal contest: `cuando` = announcement send time; default = 30min before start
       if (cuandoStr) {
         const parsed = parseWhen(cuandoStr);
         if (!parsed) {
           await interaction.editReply('Formato de tiempo inválido. Usa hora (`18:00`), ISO 8601 (`2024-06-01T18:00:00Z`) o relativo (`30m`, `2h`, `1d`).');
           return;
         }
-        scheduledFor = parsed;
+        if (contest.phase !== 'UPCOMING') {
+          // VP contest: `cuando` = the VP time; announce 5min before so participants are ready
+          simulationStartTime = parsed;
+          scheduledFor = new Date(parsed.getTime() - FIVE_MINUTES);
+        } else {
+          scheduledFor = parsed;
+        }
       } else if (contest.phase === 'UPCOMING') {
         scheduledFor = new Date(contest.startTime.getTime() - THIRTY_MINUTES);
       } else {
@@ -175,7 +180,9 @@ export class AnnounceCommand implements ISlashCommand {
     });
 
     const sendLabel = formatDate(scheduledFor);
-    const simLabel = simulationStartTime ? `\nInicio de simulación: **${formatDate(simulationStartTime)}**` : '';
+    const simLabel = simulationStartTime
+      ? `\n${category.type === 'simulacion' ? 'Inicio de simulación' : 'Virtual Participation'}: **${formatDate(simulationStartTime)}**`
+      : '';
     await interaction.editReply(
       `✅ Anuncio **#${announcement.id}** programado para **${sendLabel}**.${simLabel}\nConcurso: **${contest.name}** → Categoría: **${category.displayName}**`,
     );
