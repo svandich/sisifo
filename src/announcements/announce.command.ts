@@ -201,9 +201,12 @@ export class AnnounceCommand implements ISlashCommand {
 
     const embed = new EmbedBuilder().setTitle('Anuncios pendientes').setColor(0xed4245);
 
+    const isAdmin = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild) ?? false;
+
     for (const a of pending) {
       const cat = catMap.get(a.categoryId);
-      const contestLabel = a.contestName ?? `${a.contestPlatform} / ${a.contestExternalId}`;
+      const isSimulacion = cat?.type === 'simulacion';
+      const contestLabel = isSimulacion && !isAdmin ? '???' : (a.contestName ?? `${a.contestPlatform} / ${a.contestExternalId}`);
       embed.addFields({
         name: `#${a.id} — ${contestLabel}`,
         value: `Categoría: **${cat?.displayName ?? a.categoryId}**\nEnvío: ${formatDate(a.scheduledFor)}${a.templateName ? `\nPlantilla: ${a.templateName}` : ''}`,
