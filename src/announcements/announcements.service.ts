@@ -2,18 +2,24 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Client, TextChannel } from 'discord.js';
+import { TextChannel } from 'discord.js';
 import { Announcement } from './entities/announcement.entity';
 import { TemplatesService } from '../templates/templates.service';
 import { CategoriesService } from '../categories/categories.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { CategoryTagsService } from '../category-tags/category-tags.service';
+import { ContestsService } from '../contests/contests.service';
+import { DiscordClientService } from '../discord-client/discord-client.service';
 import { formatDate, formatDatePlain, formatDuration, formatTime, formatTimePlain, markdownToHtml } from '../common/format.util';
+import { parseWhen } from '../common/parse-when.util';
 import { DEFAULT_SIMULACION_ADMIN_TEMPLATE, DEFAULT_SIMULACION_PUBLIC_TEMPLATE, DEFAULT_VIRTUAL_TEMPLATE } from '../templates/templates.service';
 
+const FIVE_MINUTES = 5 * 60 * 1000;
+const THIRTY_MINUTES = 30 * 60 * 1000;
+
 export interface ScheduleAnnouncementDto {
-  scheduledByGuildId: string;
+  guildId?: string;
   categorySlug: string;
   contestPlatform: string;
   contestExternalId: string;
@@ -26,10 +32,18 @@ export interface ScheduleAnnouncementDto {
   simulationStartTime?: Date;
 }
 
+export interface ScheduleFromContestDto {
+  platform: string;
+  contestId: string;
+  categorySlug: string;
+  cuando?: string;
+  templateName?: string;
+  guildId?: string;
+}
+
 @Injectable()
 export class AnnouncementsService {
   private readonly logger = new Logger(AnnouncementsService.name);
-  private discordClient: Client;
 
   constructor(
     @InjectRepository(Announcement)
@@ -39,11 +53,9 @@ export class AnnouncementsService {
     private readonly subscriptions: SubscriptionsService,
     private readonly telegram: TelegramService,
     private readonly categoryTags: CategoryTagsService,
+    private readonly contests: ContestsService,
+    private readonly discordClientService: DiscordClientService,
   ) {}
-
-  setDiscordClient(client: Client) {
-    this.discordClient = client;
-  }
 
   async schedule(dto: ScheduleAnnouncementDto): Promise<Announcement> {
     const category = await this.categories.findBySlug(dto.categorySlug);
@@ -51,7 +63,7 @@ export class AnnouncementsService {
 
     return this.repo.save(
       this.repo.create({
-        scheduledByGuildId: dto.scheduledByGuildId,
+        guildId: dto.guildId ?? null,
         categoryId: category.id,
         contestPlatform: dto.contestPlatform,
         contestExternalId: dto.contestExternalId,
@@ -67,15 +79,72 @@ export class AnnouncementsService {
     );
   }
 
-  async listPending(guildId: string): Promise<Announcement[]> {
+  /**
+   * Looks up a contest and validates category/template/timing rules, mirroring the
+   * behaviour the old `/anunciar programar` Discord command used to enforce.
+   */
+  async scheduleFromContest(dto: ScheduleFromContestDto): Promise<Announcement> {
+    const contest = await this.contests.getContestById(dto.platform, dto.contestId);
+    if (!contest) throw new Error(`No se encontró el concurso "${dto.contestId}" en ${dto.platform}.`);
+
+    const category = await this.categories.findBySlug(dto.categorySlug);
+    if (!category) throw new Error(`Categoría "${dto.categorySlug}" no encontrada.`);
+
+    if (dto.templateName) {
+      if (!dto.guildId) throw new Error('Debes seleccionar un servidor para usar una plantilla personalizada.');
+      await this.templates.findOne(dto.guildId, dto.templateName);
+    }
+
+    let scheduledFor: Date;
+    let simulationStartTime: Date | undefined;
+
+    if (category.type === 'simulacion') {
+      if (!dto.cuando) throw new Error('Las simulaciones requieren la hora de inicio de la simulación.');
+      const simStart = parseWhen(dto.cuando);
+      if (!simStart) throw new Error('Formato de tiempo inválido.');
+      simulationStartTime = simStart;
+      scheduledFor = new Date(simStart.getTime() - FIVE_MINUTES);
+    } else if (dto.cuando) {
+      const parsed = parseWhen(dto.cuando);
+      if (!parsed) throw new Error('Formato de tiempo inválido.');
+      if (contest.phase !== 'UPCOMING') {
+        simulationStartTime = parsed;
+        scheduledFor = new Date(parsed.getTime() - FIVE_MINUTES);
+      } else {
+        scheduledFor = parsed;
+      }
+    } else if (contest.phase === 'UPCOMING') {
+      scheduledFor = new Date(contest.startTime.getTime() - THIRTY_MINUTES);
+    } else {
+      throw new Error(`El concurso "${contest.name}" ya comenzó. Debes indicar cuándo enviar el anuncio.`);
+    }
+
+    if (scheduledFor <= new Date()) throw new Error('La hora programada ya pasó. Especifica un tiempo en el futuro.');
+
+    return this.schedule({
+      guildId: dto.guildId,
+      categorySlug: dto.categorySlug,
+      contestPlatform: dto.platform,
+      contestExternalId: dto.contestId,
+      contestName: contest.name,
+      contestUrl: contest.url,
+      contestStartTime: contest.startTime,
+      contestDurationSeconds: contest.durationSeconds,
+      templateName: dto.templateName,
+      scheduledFor,
+      simulationStartTime,
+    });
+  }
+
+  async listPending(): Promise<Announcement[]> {
     return this.repo.find({
-      where: { scheduledByGuildId: guildId, sent: false },
+      where: { sent: false },
       order: { scheduledFor: 'ASC' },
     });
   }
 
-  async cancel(guildId: string, id: number): Promise<void> {
-    const announcement = await this.repo.findOneBy({ id, scheduledByGuildId: guildId });
+  async cancel(id: number): Promise<void> {
+    const announcement = await this.repo.findOneBy({ id });
     if (!announcement) throw new Error(`Anuncio #${id} no encontrado.`);
     if (announcement.sent) throw new Error(`El anuncio #${id} ya fue enviado.`);
     await this.repo.delete(id);
@@ -83,7 +152,8 @@ export class AnnouncementsService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async dispatch() {
-    if (!this.discordClient?.isReady()) return;
+    const client = this.discordClientService.get();
+    if (!client?.isReady()) return;
 
     const due = await this.repo.find({
       where: { sent: false, scheduledFor: LessThanOrEqual(new Date()) },
@@ -96,6 +166,7 @@ export class AnnouncementsService {
 
   private async sendAnnouncement(announcement: Announcement) {
     try {
+      const client = this.discordClientService.get();
       const category = await this.categories.findById(announcement.categoryId);
       const subs = await this.subscriptions.findByCategory(announcement.categoryId);
       const isSimulacion = category?.type === 'simulacion';
@@ -136,6 +207,7 @@ export class AnnouncementsService {
         const includeIdentity = !isSimulacion || sub.adminOnly;
 
         if (sub.platform === 'discord') {
+          if (!client) continue;
           const tags = sub.guildId ? await this.categoryTags.buildDiscordMentions(announcement.categoryId, sub.guildId) : '';
           const discordVars = { ...buildDiscordVars(includeIdentity), tags };
           const template = isSimulacion
@@ -143,9 +215,9 @@ export class AnnouncementsService {
             : null;
           const discordMsg = isSimulacion
             ? this.templates.render(template!, discordVars)
-            : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, discordVars, normalFallback);
+            : await this.templates.renderTemplate(announcement.guildId ?? '', announcement.templateName, discordVars, normalFallback);
 
-          const channel = await this.discordClient.channels.fetch(sub.chatId).catch(() => null);
+          const channel = await client.channels.fetch(sub.chatId).catch(() => null);
           if (channel instanceof TextChannel) await channel.send(tags ? `${tags}\n${discordMsg}` : discordMsg);
         } else if (sub.platform === 'telegram') {
           const tags = await this.categoryTags.buildTelegramMentions(announcement.categoryId, sub.chatId);
@@ -156,7 +228,7 @@ export class AnnouncementsService {
           const telegramMsg = markdownToHtml(
             isSimulacion
               ? this.templates.render(template!, telegramVars)
-              : await this.templates.renderTemplate(announcement.scheduledByGuildId, announcement.templateName, telegramVars, normalFallback),
+              : await this.templates.renderTemplate(announcement.guildId ?? '', announcement.templateName, telegramVars, normalFallback),
           );
           await this.telegram.send(sub.chatId, telegramMsg, sub.threadId ?? undefined);
         }

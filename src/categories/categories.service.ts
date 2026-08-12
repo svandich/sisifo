@@ -16,6 +16,20 @@ export class CategoriesService {
     return this.repo.save(this.repo.create({ slug, displayName, type }));
   }
 
+  async createFromName(displayName: string, type: 'normal' | 'simulacion' = 'normal'): Promise<Category> {
+    const slug = CategoriesService.slugify(displayName);
+    return this.create(slug, displayName, type);
+  }
+
+  static slugify(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[áéíóúüñ]/g, (c) => ({ á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u', ñ: 'n' })[c] ?? c)
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+  }
+
   async findAll(): Promise<Category[]> {
     return this.repo.find({ order: { displayName: 'ASC' } });
   }

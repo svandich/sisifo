@@ -10,14 +10,10 @@ import {
   Interaction,
 } from 'discord.js';
 import { ISlashCommand } from './slash-command.interface';
-import { TemplateCommand } from '../templates/template.command';
 import { ContestCommand } from '../contests/contest.command';
-import { AnnounceCommand } from '../announcements/announce.command';
-import { CategoryCommand } from '../categories/category.command';
-import { SubscribeCommand } from '../subscriptions/subscribe.command';
 import { SuscribirmeCommand } from '../category-tags/suscribirme.command';
-import { TagsCommand } from '../category-tags/tags.command';
-import { AnnouncementsService } from '../announcements/announcements.service';
+import { SubscribeCommand } from '../subscriptions/subscribe.command';
+import { DiscordClientService } from '../discord-client/discord-client.service';
 
 @Injectable()
 export class BotService implements OnModuleInit, OnModuleDestroy {
@@ -27,23 +23,15 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly templateCommand: TemplateCommand,
     private readonly contestCommand: ContestCommand,
-    private readonly announceCommand: AnnounceCommand,
-    private readonly categoryCommand: CategoryCommand,
-    private readonly subscribeCommand: SubscribeCommand,
     private readonly suscribirmeCommand: SuscribirmeCommand,
-    private readonly tagsCommand: TagsCommand,
-    private readonly announcementsService: AnnouncementsService,
+    private readonly subscribeCommand: SubscribeCommand,
+    private readonly discordClientService: DiscordClientService,
   ) {
     this.client = new Client({ intents: [GatewayIntentBits.Guilds] });
-    this.registerCommand(templateCommand);
     this.registerCommand(contestCommand);
-    this.registerCommand(announceCommand);
-    this.registerCommand(categoryCommand);
-    this.registerCommand(subscribeCommand);
     this.registerCommand(suscribirmeCommand);
-    this.registerCommand(tagsCommand);
+    this.registerCommand(subscribeCommand);
   }
 
   private registerCommand(cmd: ISlashCommand) {
@@ -51,7 +39,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    this.announcementsService.setDiscordClient(this.client);
+    this.discordClientService.set(this.client);
 
     this.client.once('clientReady', async (c) => {
       this.logger.log(`Conectado como ${c.user.tag}`);

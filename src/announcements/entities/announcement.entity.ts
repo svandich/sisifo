@@ -5,8 +5,8 @@ export class Announcement {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  scheduledByGuildId: string;
+  @Column({ nullable: true })
+  guildId: string; // Discord guild used to resolve a custom template, if any
 
   @Column()
   categoryId: number;

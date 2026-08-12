@@ -1,48 +1,32 @@
 # Command Reference
 
-Commands marked with a lock require the **Manage Server** permission (Discord) or **admin** status (Telegram).
+Most administrative actions (categories, role mentions, templates, scheduling announcements) are managed through the **admin web panel**, not bot commands. Log in at `http://localhost:3000` (or your configured `PORT`) with the `ADMIN_TOKEN` value. See [setup.md](setup.md).
+
+Chat/channel subscriptions are the exception: they can be managed from the admin panel *or* directly from each platform, gated by that platform's own notion of "admin" (Discord's **Manage Server** permission, Telegram's group-admin/creator status) — no `ADMIN_TOKEN` needed for that. Every other bot command is self-serve/read-only and requires no permission at all.
 
 ---
 
 ## Discord slash commands
 
-### `/categoria` — manage categories
+### `/contest` — browse contests
 
 | Subcommand | Options | Description |
 |---|---|---|
-| `agregar` | `nombre`, `tipo?` | Create a new category; slug is auto-generated |
-| `lista` | — | List all categories with their slugs |
+| `upcoming` | `platform` | List upcoming contests (up to 5) |
+| `search` | `platform`, `query` | Search contests by name |
+| `info` | `platform`, `id` | Show details for a specific contest |
 
-`tipo` choices: **Concurso próximo** (`normal`, default) or **Simulación** (`simulacion`).
+Supported platforms: `codeforces`, `atcoder`.
 
-### `/suscripcion` — manage subscriptions
+### `/suscripcion` — manage channel subscriptions (requires **Manage Server**)
 
 | Subcommand | Options | Description |
 |---|---|---|
-| `agregar` | `categoria`, `canal?`, `admin?` | Subscribe a channel to a category |
+| `agregar` | `categoria`, `canal?`, `admin?` | Subscribe a channel (default: the current one) to a category. `admin` marks it as an admin channel (full contest details in simulaciones) |
 | `eliminar` | `categoria`, `canal?`, `admin?` | Unsubscribe a channel |
-| `lista` | — | Show all active subscriptions in this server |
+| `lista` | — | List this server's active subscriptions (no permission required) |
 
-`canal` defaults to the current channel when omitted. `admin: true` marks the subscription as an admin subscription — for simulación categories these channels receive the full contest name, platform, and URL; public subscriptions only see the timing and duration.
-
-### `/anunciar` — schedule announcements
-
-| Subcommand | Options | Description |
-|---|---|---|
-| `programar` | `plataforma`, `id_concurso`, `categoria`, `cuando?`, `plantilla?` | Schedule an announcement |
-| `lista` | — | List pending announcements for this server |
-| `cancelar` | `id` | Cancel a pending announcement by ID |
-
-`cuando` accepts an ISO 8601 datetime (`2024-06-01T18:00:00Z`) or a relative offset (`30m`, `2h`, `1d`).
-
-**Behaviour by category type:**
-
-| Category type | `cuando` meaning | Default |
-|---|---|---|
-| `normal` | Time to send the announcement | 30 min before contest start |
-| `simulacion` | **Simulation start time** (announcement fires 5 min before) | Required |
-
-For simulaciones, `cuando` must be specified and represents when the simulation begins. The announcement is automatically sent 5 minutes before that time.
+`agregar`/`eliminar` require the **Manage Server** permission; anyone can run `lista`.
 
 ### `/suscribirme` — subscribe yourself to be tagged
 
@@ -55,38 +39,39 @@ Any user can run this to opt-in to being mentioned when announcements for a cate
 
 The template must include `{{tags}}` for the mention to appear.
 
-### `/tags` — manage role tags (admin only)
+---
 
-Admins can make a Discord role taggable for a category. Requires **Manage Server** permission.
+## Telegram commands
 
-| Subcommand | Options | Description |
-|---|---|---|
-| `agregar` | `rol`, `categoria` | Add a role to be mentioned in announcements |
-| `eliminar` | `rol`, `categoria` | Remove a role from mentions |
-| `lista` | `categoria?` | Show all tagged roles and users in this server |
+| Command | Description |
+|---|---|
+| `/categorias` | List all categories and their slugs |
+| `/suscribir <slug> [admin]` | Subscribe this chat (or forum topic) to a category. **Requires group-admin or creator status.** `admin` marks it as an admin subscription |
+| `/desuscribir <slug> [admin]` | Unsubscribe. Same admin gating |
+| `/suscribirme <slug>` | Opt-in to be mentioned when announcements for a category fire in this chat |
+| `/desuscribirme <slug>` | Opt-out of being mentioned |
 
-### `/contest` — browse contests
+Send these in any chat the bot is in. If sent inside a **forum topic**, `/suscribir`/`/desuscribir` and the opt-in commands are scoped to that thread. The template must include `{{tags}}` for individual Telegram mentions to appear; mentions use each user's display name as recorded at subscribe time.
 
-| Subcommand | Options | Description |
-|---|---|---|
-| `upcoming` | `platform` | List upcoming contests (up to 5) |
-| `search` | `platform`, `query` | Search contests by name |
-| `info` | `platform`, `id` | Show details for a specific contest |
+Any message the bot sees (from any chat/topic it's a member of) also registers that chat/topic in the admin panel's "known chats" list, so it can be picked from a dropdown when creating a subscription from the panel instead.
 
-Supported platforms: `codeforces`, `atcoder`.
+---
 
-### `/template` — message templates
+## Admin web panel
 
-| Subcommand | Options | Description |
-|---|---|---|
-| `create` | `name`, `content` | Create a new template |
-| `edit` | `name`, `content` | Update an existing template |
-| `list` | — | List all templates for this server |
-| `view` | `name` | Show template content |
-| `delete` | `name` | Delete a template |
-| `variables` | — | Show available template variables |
+Most of the below used to be admin-gated bot commands (Discord's **Manage Server** permission, Telegram's group-admin status) and now live only in the web panel. Subscriptions are the exception — they're reachable from both the panel (any `ADMIN_TOKEN` holder, any server/chat) and the bot commands above (scoped to a server/chat's own admins).
 
-**Available variables:**
+| Section | What it does |
+|---|---|
+| Categories | Create/delete announcement categories (**normal** — upcoming contest, or **simulación** — hidden contest identity until admin-only channels) |
+| Subscriptions | Link a Discord channel or Telegram chat/topic to a category, optionally as an **admin** subscription (receives full contest details in simulaciones) — also doable via `/suscripcion` / `/suscribir` above |
+| Menciones (Tags) | Make a Discord role taggable in a category's announcements |
+| Templates | Create/edit/delete per-server (Discord guild) message templates |
+| Announcements | Browse Codeforces/AtCoder contests and schedule an announcement for a category; cancel pending announcements |
+
+Discord channels/roles are listed live from the bot's connection. Telegram chats/topics are listed from what the bot has seen in messages — send a message (or `/categorias`) in the target chat/topic at least once so it shows up as a subscription target.
+
+**Available template variables:**
 
 | Variable | Value |
 |---|---|
@@ -96,21 +81,13 @@ Supported platforms: `codeforces`, `atcoder`.
 | `{{duration}}` | Duration (e.g. `2h 30m`) |
 | `{{contest_url}}` | Link to the contest page |
 | `{{tags}}` | Mentions of all users/roles subscribed to be tagged for this category (empty if none) |
+| `{{vp_time}}` | Time the announcement fires — useful for Virtual Participation reminders on past-contest announcements |
 
----
+`cuando` (when scheduling an announcement) accepts a time of day (`18:00`), an ISO 8601 datetime (`2024-06-01T18:00:00Z`), or a relative offset (`30m`, `2h`, `1d`).
 
-## Telegram commands
+**Behaviour by category type:**
 
-Send these in any group where the bot is an admin. If sent inside a **forum topic**, the subscription is scoped to that thread.
-
-| Command | Description |
-|---|---|
-| `/categorias` | List all categories and their slugs |
-| `/suscribir <slug> [admin]` | Subscribe this chat/topic to a category (admin only) |
-| `/desuscribir <slug> [admin]` | Unsubscribe this chat/topic from a category (admin only) |
-| `/suscribirme <slug>` | Opt-in to be mentioned when announcements for a category fire in this chat |
-| `/desuscribirme <slug>` | Opt-out of being mentioned |
-
-Add `admin` after the slug to create/remove an admin subscription that receives full contest details in simulaciones.
-
-The template must include `{{tags}}` for individual Telegram mentions to appear. Mentions use each user's display name as recorded at subscribe time.
+| Category type | `cuando` meaning | Default |
+|---|---|---|
+| `normal` | Time to send the announcement | 30 min before contest start |
+| `simulacion` | **Simulation start time** (announcement fires 5 min before) | Required |

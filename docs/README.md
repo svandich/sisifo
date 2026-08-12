@@ -1,12 +1,13 @@
 # Entrenador Sisifo
 
-A NestJS bot that schedules and delivers competitive programming contest announcements to Discord channels and Telegram chats.
+A NestJS app that schedules and delivers competitive programming contest announcements to Discord channels and Telegram chats, managed through a small web admin panel.
 
 ## How it works
 
-1. **Create a category** — a named topic with a type: **normal** (upcoming contest) or **simulación** (past contest replayed as practice)
-2. **Subscribe channels** — link Discord channels or Telegram chats/topics to a category; mark a subscription as **admin** to receive full contest details in simulaciones
-3. **Schedule an announcement** — pick a contest and a category; the bot sends the message at the right time to every subscriber
+1. **Create a category** (in the admin panel) — a named topic with a type: **normal** (upcoming contest) or **simulación** (past contest replayed as practice)
+2. **Subscribe channels** (in the admin panel) — link Discord channels or Telegram chats/topics to a category; mark a subscription as **admin** to receive full contest details in simulaciones
+3. **Schedule an announcement** (in the admin panel) — pick a contest and a category; the bot sends the message at the right time to every subscriber
+4. Optionally, **set up a recurring schedule** (in the admin panel, `normal` categories only) — pick a category, an interval in days, and a fixed UTC hour; build a list of contests, and every cycle the bot announces a random one from that list (without repeats) to everyone subscribed to the category. Once the list runs out, the schedule stops until you add more contests.
 
 Announcements are dispatched every minute via a cron job.
 
@@ -17,36 +18,13 @@ Announcements are dispatched every minute via a cron job.
 | `normal` | 30 min before contest start | Actual contest start | Always shown |
 | `simulacion` | 5 min before sim start | Sim start (`cuando`) | Hidden from public subs; shown to admin subs |
 
-## Quick start — upcoming contest (Discord)
+## Admin web panel
 
-```
-/categoria agregar nombre:Entrenamiento Semanal tipo:Concurso próximo
-/suscripcion agregar categoria:entrenamiento_semanal
-/contest upcoming platform:codeforces
-/anunciar programar plataforma:codeforces id_concurso:12345 categoria:entrenamiento_semanal
-```
+All administrative work — categories, subscriptions, role mentions, templates, and scheduling/cancelling announcements — happens at `http://localhost:3000` (or your `PORT`), authenticated with the `ADMIN_TOKEN` env var. See [setup.md](setup.md).
 
-## Quick start — simulación (Discord)
-
-```
-/categoria agregar nombre:Simulaciones tipo:Simulación
-/suscripcion agregar categoria:simulaciones                       # public channel
-/suscripcion agregar categoria:simulaciones canal:#admin admin:true  # admin channel
-/contest search platform:codeforces query:round
-/anunciar programar plataforma:codeforces id_concurso:12345 categoria:simulaciones cuando:2024-06-01T18:00:00Z
-```
-
-## Quick start (Telegram)
-
-Add the bot to a group, then as an admin:
-
-```
-/categorias
-/suscribir entrenamiento_semanal          # public subscription
-/suscribir simulaciones admin             # admin subscription (sees full contest details)
-```
+Discord itself only exposes two self-serve slash commands: `/contest` (browse contests) and `/suscribirme` (opt in/out of being mentioned). Telegram only exposes `/categorias`, `/suscribirme`, and `/desuscribirme` — same self-serve idea, no admin commands on either platform.
 
 ## Docs
 
-- [Setup](setup.md) — environment variables, running the bot
-- [Commands](commands.md) — full command reference for Discord and Telegram
+- [Setup](setup.md) — environment variables, running the bot, the admin panel
+- [Commands](commands.md) — full reference for Discord/Telegram commands and the admin panel

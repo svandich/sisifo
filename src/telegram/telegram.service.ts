@@ -4,6 +4,7 @@ import * as TelegramBot from 'node-telegram-bot-api';
 import { CategoriesService } from '../categories/categories.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { CategoryTagsService } from '../category-tags/category-tags.service';
+import { TelegramRegistryService } from './telegram-registry.service';
 
 @Injectable()
 export class TelegramService implements OnModuleInit, OnModuleDestroy {
@@ -15,6 +16,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly categories: CategoriesService,
     private readonly subscriptions: SubscriptionsService,
     private readonly categoryTags: CategoryTagsService,
+    private readonly registry: TelegramRegistryService,
   ) {}
 
   async onModuleInit() {
@@ -44,6 +46,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleMessage(msg: TelegramBot.Message) {
+    await this.trackChat(msg);
+
     const text = msg.text ?? '';
     if (!text.startsWith('/')) return;
 
@@ -65,6 +69,19 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       return member.status === 'creator' || member.status === 'administrator';
     } catch {
       return false;
+    }
+  }
+
+  /** Records chats/topics the bot sees so the admin panel can offer them as subscription targets. */
+  private async trackChat(msg: TelegramBot.Message) {
+    const chat = msg.chat;
+    const title =
+      chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username || String(chat.id);
+    await this.registry.trackChat(String(chat.id), title, chat.type);
+
+    if (msg.message_thread_id) {
+      const topicName = (msg as unknown as { forum_topic_created?: { name?: string } }).forum_topic_created?.name;
+      await this.registry.trackTopic(String(chat.id), String(msg.message_thread_id), topicName);
     }
   }
 

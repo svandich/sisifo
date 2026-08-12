@@ -83,7 +83,13 @@ export class CategoryTagsService {
     return tags.map((t) => `<a href="tg://user?id=${t.targetId}">${escapeHtml(t.displayName ?? t.targetId)}</a>`).join(' ');
   }
 
-  async findByGuild(guildId: string): Promise<CategoryTag[]> {
-    return this.repo.findBy({ platform: 'discord', scopeId: guildId });
+  async findAll(): Promise<CategoryTag[]> {
+    return this.repo.find({ order: { id: 'ASC' } });
+  }
+
+  async removeById(id: number): Promise<void> {
+    const tag = await this.repo.findOneBy({ id });
+    if (!tag) throw new Error(`Mención #${id} no encontrada.`);
+    await this.repo.delete(id);
   }
 }

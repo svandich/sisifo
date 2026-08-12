@@ -75,4 +75,14 @@ export class SubscriptionsService {
   async findByGuild(guildId: string): Promise<Subscription[]> {
     return this.repo.findBy({ guildId, platform: 'discord' });
   }
+
+  async findAll(): Promise<Subscription[]> {
+    return this.repo.find({ order: { id: 'ASC' } });
+  }
+
+  async deleteById(id: number): Promise<void> {
+    const sub = await this.repo.findOneBy({ id });
+    if (!sub) throw new Error(`Suscripción #${id} no encontrada.`);
+    await this.repo.delete(id);
+  }
 }

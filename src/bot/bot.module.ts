@@ -1,14 +1,12 @@
 import { Module } from '@nestjs/common';
 import { BotService } from './bot.service';
-import { TemplatesModule } from '../templates/templates.module';
 import { ContestsModule } from '../contests/contests.module';
-import { AnnouncementsModule } from '../announcements/announcements.module';
-import { CategoriesModule } from '../categories/categories.module';
-import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { CategoryTagsModule } from '../category-tags/category-tags.module';
+import { DiscordClientModule } from '../discord-client/discord-client.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
-  imports: [TemplatesModule, ContestsModule, AnnouncementsModule, CategoriesModule, SubscriptionsModule, CategoryTagsModule],
+  imports: [ContestsModule, CategoryTagsModule, DiscordClientModule, SubscriptionsModule],
   providers: [BotService],
 })
 export class BotModule {}
