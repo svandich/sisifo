@@ -1,0 +1,8 @@
+services:
+  sisifo:
+    image: sisifo:latest
+    container_name: sisifo
+    restart: unless-stopped
+    env_file: ./sisifo.env
+    volumes:
+      - ./data:/app/data

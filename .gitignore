@@ -7,6 +7,7 @@ build/
 *.tsbuildinfo
 
 # Environment
+sisifo.env
 .env
 .env.local
 .env.*.local
