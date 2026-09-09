@@ -29,6 +29,9 @@ export class RecurringSchedule {
   @Column({ type: 'datetime' })
   nextRunAt: Date;
 
+  @Column({ type: 'int', nullable: true })
+  nextContestId: number | null; // pre-selected RecurringScheduleContest.id for the next run — see schedules.md
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -14,6 +14,7 @@ const state = {
   editingTemplate: false,
   scheduleContest: null,
   schedules: [],
+  expandedSchedule: null,
   scheduleAddContest: null,
 };
 
@@ -630,6 +631,51 @@ async function loadSchedules() {
   renderSchedules();
 }
 
+function nextContestCell(s) {
+  const pick = s.contests.find((c) => c.id === s.nextContestId);
+  return pick ? escapeHtml(pick.contestName) : '<span class="muted">—</span>';
+}
+
+function renderPoolRow(s) {
+  if (state.expandedSchedule !== s.id) return '';
+  // Pools get long (hundreds of entries), so surface what's actionable: the committed pick first,
+  // then the rest of the pool, then everything already sent.
+  const rank = (c) => (c.id === s.nextContestId ? 0 : c.used ? 2 : 1);
+  const rows = s.contests.length
+    ? [...s.contests]
+        .sort((a, b) => rank(a) - rank(b) || a.contestName.localeCompare(b.contestName))
+        .map((c) => {
+          const isNext = c.id === s.nextContestId;
+          const status = c.used
+            ? `<span class="badge">enviado ${formatDateTime(c.usedAt)}</span>`
+            : isNext
+              ? '<span class="badge admin">próximo</span>'
+              : '<span class="badge">en lista</span>';
+          return `
+        <tr>
+          <td><a href="${escapeHtml(c.contestUrl)}" target="_blank" rel="noopener">${escapeHtml(c.contestName)}</a></td>
+          <td>${escapeHtml(c.contestPlatform)}</td>
+          <td>${formatDateTime(c.contestStartTime)}</td>
+          <td>${status}</td>
+          <td>
+            ${c.used || isNext ? '' : `<button class="secondary" data-set-next="${s.id}:${c.id}">Usar este</button>`}
+            ${c.used ? '' : `<button class="secondary danger" data-remove-pool="${s.id}:${c.id}">Quitar</button>`}
+          </td>
+        </tr>`;
+        })
+        .join('')
+    : '<tr class="empty-row"><td colspan="5">Lista vacía. Busca concursos abajo para agregarlos.</td></tr>';
+  return `
+      <tr>
+        <td colspan="8">
+          <table class="data-table nested">
+            <thead><tr><th>Concurso</th><th>Plataforma</th><th>Inicio</th><th>Estado</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </td>
+      </tr>`;
+}
+
 function renderSchedules() {
   const body = document.getElementById('schedules-body');
   body.innerHTML = state.schedules.length
@@ -641,18 +687,21 @@ function renderSchedules() {
       <tr>
         <td>${escapeHtml(categoryName(s.categoryId))}</td>
         <td>${s.intervalDays}d</td>
-        <td>${pad2(s.hour)}:${pad2(s.minute)}</td>
+        <td><input class="cell-input" type="time" value="${pad2(s.hour)}:${pad2(s.minute)}" data-schedule-time="${s.id}" /></td>
         <td>${formatDateTime(s.nextRunAt)}</td>
+        <td>${nextContestCell(s)}</td>
         <td>${used}/${total}</td>
         <td>${s.active ? '<span class="badge admin">activo</span>' : '<span class="badge">detenido</span>'}</td>
         <td>
+          <button class="secondary" data-toggle-pool="${s.id}">${state.expandedSchedule === s.id ? 'Ocultar lista' : 'Ver lista'}</button>
+          <button class="secondary" data-save-time="${s.id}">Guardar hora</button>
           <button class="secondary" data-toggle-schedule="${s.id}" data-active="${s.active}">${s.active ? 'Pausar' : 'Reanudar'}</button>
           <button class="secondary danger" data-delete-schedule="${s.id}">Eliminar</button>
         </td>
-      </tr>`;
+      </tr>${renderPoolRow(s)}`;
         })
         .join('')
-    : emptyRow(7);
+    : emptyRow(8);
 }
 
 document.getElementById('schedule-recurring-form').addEventListener('submit', async (e) => {
@@ -681,7 +730,44 @@ document.getElementById('schedule-recurring-form').addEventListener('submit', as
 document.getElementById('schedules-body').addEventListener('click', async (e) => {
   const toggleId = e.target.dataset.toggleSchedule;
   const deleteId = e.target.dataset.deleteSchedule;
-  if (toggleId) {
+  const saveTimeId = e.target.dataset.saveTime;
+  const togglePoolId = e.target.dataset.togglePool;
+  const setNext = e.target.dataset.setNext;
+  const removePool = e.target.dataset.removePool;
+  if (togglePoolId) {
+    state.expandedSchedule = state.expandedSchedule === Number(togglePoolId) ? null : Number(togglePoolId);
+    renderSchedules();
+  } else if (setNext) {
+    const [scheduleId, contestId] = setNext.split(':');
+    try {
+      await api(`/schedules/${scheduleId}`, { method: 'PATCH', body: { nextContestId: Number(contestId) } });
+      await loadSchedules();
+      toast('Se actualizó el concurso del próximo envío.');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (removePool) {
+    const [scheduleId, contestId] = removePool.split(':');
+    if (!confirm('¿Quitar este concurso de la lista?')) return;
+    try {
+      await api(`/schedules/${scheduleId}/contests/${contestId}`, { method: 'DELETE' });
+      await loadSchedules();
+      toast('Concurso quitado de la lista.');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (saveTimeId) {
+    const time = document.querySelector(`[data-schedule-time="${saveTimeId}"]`).value;
+    if (!time) return toast('Ingresa una hora válida.', true);
+    const [hour, minute] = time.split(':').map(Number);
+    try {
+      const updated = await api(`/schedules/${saveTimeId}`, { method: 'PATCH', body: { hour, minute } });
+      await loadSchedules();
+      toast(`Hora actualizada. Próximo envío: ${formatDateTime(updated.nextRunAt)}.`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (toggleId) {
     const active = e.target.dataset.active === 'true';
     try {
       await api(`/schedules/${toggleId}`, { method: 'PATCH', body: { active: !active } });

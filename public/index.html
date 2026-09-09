@@ -156,6 +156,9 @@
           <p class="muted">
             Cada tantos días, a una hora fija (UTC), se envía un anuncio para la categoría elegida con un concurso al azar
             (sin repetir) de la lista que armes abajo. Cuando se acaba la lista, la programación se detiene sola.
+            Puedes cambiar la hora de una programación existente sin perder su lista: edita el campo de hora en la tabla
+            y presiona «Guardar hora». El concurso del próximo envío se sortea con anticipación y se muestra en la tabla:
+            con «Ver lista» puedes reemplazarlo por otro de la lista o quitarlo.
           </p>
         </div>
         <form id="schedule-recurring-form" class="inline-form">
@@ -166,7 +169,7 @@
           <button type="submit">Crear programación</button>
         </form>
         <table class="data-table">
-          <thead><tr><th>Categoría</th><th>Cada</th><th>Hora (UTC)</th><th>Próximo envío</th><th>Lista</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Categoría</th><th>Cada</th><th>Hora (UTC)</th><th>Próximo envío</th><th>Próximo concurso</th><th>Lista</th><th>Estado</th><th></th></tr></thead>
           <tbody id="schedules-body"></tbody>
         </table>
 

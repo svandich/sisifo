@@ -177,6 +177,8 @@ input, select, textarea {
 .data-table th { color: var(--muted); font-weight: 600; background: var(--bg); }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table .empty-row td { color: var(--muted); text-align: center; padding: 1.2em; }
+.data-table .nested { margin-bottom: 0; background: var(--bg); }
+.data-table .cell-input { padding: 0.3em 0.45em; font-size: 0.9em; }
 .data-table pre { white-space: pre-wrap; margin: 0; font-family: inherit; font-size: 0.9em; }
 
 .badge {

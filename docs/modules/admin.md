@@ -72,10 +72,10 @@ All routes below require the `Authorization: Bearer <ADMIN_TOKEN>` header (via `
 | `GET` | `/api/telegram/chats` | — | From the tracked-chat registry, not live — see [telegram](telegram.md) |
 | `GET` | `/api/schedules` | — | All recurring schedules, each with its pool of contests (`contests: []`) attached |
 | `POST` | `/api/schedules` | `{ categorySlug, intervalDays, hour, minute, guildId?, templateName? }` | `categorySlug` must be a `normal`-type category. See [schedules](schedules.md) for validation/timing rules |
-| `PATCH` | `/api/schedules/:id` | `{ active }` | Pause/resume |
+| `PATCH` | `/api/schedules/:id` | any of `{ active }`, `{ hour, minute }`, `{ nextContestId }` | Pause/resume, change the send time, and/or override which pool contest the next run announces. `hour`/`minute` must be sent together; sending none of the three is a 400. See [schedules](schedules.md) for how `nextRunAt` is recomputed and how the pick works |
 | `DELETE` | `/api/schedules/:id` | — | Deletes the schedule and its whole contest pool |
 | `POST` | `/api/schedules/:id/contests` | `{ platform, externalId }` | Looks up and snapshots the contest into the schedule's pool |
-| `DELETE` | `/api/schedules/:id/contests/:contestId` | — | Fails if that pool entry was already used |
+| `DELETE` | `/api/schedules/:id/contests/:contestId` | — | Fails if that pool entry was already used. Removing the entry that was queued up as `nextContestId` re-draws the pick |
 
 ## `GET /api/discord/guilds`
 

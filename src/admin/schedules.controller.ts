@@ -43,10 +43,24 @@ export class SchedulesController {
   }
 
   @Patch(':id')
-  async setActive(@Param('id') id: string, @Body() body: { active?: boolean }) {
-    if (body.active == null) throw new BadRequestException('active es requerido.');
+  async update(
+    @Param('id') id: string,
+    @Body() body: { active?: boolean; hour?: number; minute?: number; nextContestId?: number },
+  ) {
+    const retiming = body.hour != null || body.minute != null;
+    const repicking = body.nextContestId != null;
+    if (body.active == null && !retiming && !repicking) {
+      throw new BadRequestException('Se requiere active, hour y minute, o nextContestId.');
+    }
+    if (retiming && (body.hour == null || body.minute == null)) {
+      throw new BadRequestException('hour y minute deben enviarse juntos.');
+    }
     try {
-      return await this.schedules.setActive(Number(id), body.active);
+      let schedule;
+      if (retiming) schedule = await this.schedules.updateTime(Number(id), Number(body.hour), Number(body.minute));
+      if (repicking) schedule = await this.schedules.setNextContest(Number(id), Number(body.nextContestId));
+      if (body.active != null) schedule = await this.schedules.setActive(Number(id), body.active);
+      return schedule;
     } catch (err) {
       toHttpError(err);
     }
