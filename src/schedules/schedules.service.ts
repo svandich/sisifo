@@ -8,8 +8,8 @@ import { CategoriesService } from '../categories/categories.service';
 import { ContestsService } from '../contests/contests.service';
 import { AnnouncementsService } from '../announcements/announcements.service';
 import { TemplatesService } from '../templates/templates.service';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { SettingsService } from '../settings/settings.service';
+import { addDaysInZone, formatDateInZone, getZonedParts, timeZoneLabel, withTimeInZone, zonedTimeToUtc } from '../common/timezone.util';
 
 export interface CreateScheduleDto {
   categorySlug: string;
@@ -37,6 +37,7 @@ export class SchedulesService {
     private readonly contests: ContestsService,
     private readonly announcements: AnnouncementsService,
     private readonly templates: TemplatesService,
+    private readonly settings: SettingsService,
   ) {}
 
   async create(dto: CreateScheduleDto): Promise<RecurringSchedule> {
@@ -67,7 +68,7 @@ export class SchedulesService {
         hour: dto.hour,
         minute: dto.minute,
         active: true,
-        nextRunAt: SchedulesService.nextOccurrence(dto.hour, dto.minute, new Date()),
+        nextRunAt: SchedulesService.nextOccurrence(dto.hour, dto.minute, new Date(), this.settings.getTimezone()),
       }),
     );
   }
@@ -88,7 +89,7 @@ export class SchedulesService {
     if (!schedule) throw new Error(`Programación #${id} no encontrada.`);
     schedule.active = active;
     if (active && schedule.nextRunAt <= new Date()) {
-      schedule.nextRunAt = SchedulesService.nextOccurrence(schedule.hour, schedule.minute, new Date());
+      schedule.nextRunAt = SchedulesService.nextOccurrence(schedule.hour, schedule.minute, new Date(), this.settings.getTimezone());
     }
     return this.repo.save(schedule);
   }
@@ -101,8 +102,24 @@ export class SchedulesService {
     if (!schedule) throw new Error(`Programación #${id} no encontrada.`);
     schedule.hour = hour;
     schedule.minute = minute;
-    schedule.nextRunAt = SchedulesService.retimeRun(schedule.nextRunAt, hour, minute, schedule.intervalDays);
+    schedule.nextRunAt = SchedulesService.retimeRun(schedule.nextRunAt, hour, minute, schedule.intervalDays, this.settings.getTimezone());
     return this.repo.save(schedule);
+  }
+
+  /**
+   * Re-anchors every schedule's pending run after the app time zone changed. `hour`/`minute` are
+   * wall-clock in the configured zone, so the same stored 09:00 now points at a different instant;
+   * without this, existing schedules would keep firing at the old zone's time until retimed by hand.
+   * Called by the admin settings controller right after `SettingsService.setTimezone`.
+   */
+  async retimeAllForTimezone(): Promise<number> {
+    const timeZone = this.settings.getTimezone();
+    const schedules = await this.repo.find();
+    for (const schedule of schedules) {
+      schedule.nextRunAt = SchedulesService.retimeRun(schedule.nextRunAt, schedule.hour, schedule.minute, schedule.intervalDays, timeZone);
+    }
+    await this.repo.save(schedules);
+    return schedules.length;
   }
 
   async setNextContest(scheduleId: number, contestId: number): Promise<RecurringSchedule> {
@@ -182,20 +199,21 @@ export class SchedulesService {
    * the stored run *date* is preserved, only HH:MM changes. If the new time already passed
    * (e.g. moving 15:05 -> 14:55 on the day it fires), the run advances by whole intervals
    * instead of firing immediately — same no-catch-up rule as `setActive`.
+   *
+   * `hour`/`minute` are wall-clock in the configured zone, so the date is taken there too:
+   * a run stored at 03:00 UTC is "yesterday 23:00" in Chile, and retiming it must keep *that* day.
    */
-  private static retimeRun(current: Date, hour: number, minute: number, intervalDays: number): Date {
-    const next = new Date(current);
-    next.setUTCHours(hour, minute, 0, 0);
+  private static retimeRun(current: Date, hour: number, minute: number, intervalDays: number, timeZone: string): Date {
+    let next = withTimeInZone(current, hour, minute, timeZone);
     const now = new Date();
-    while (next <= now) next.setUTCDate(next.getUTCDate() + intervalDays);
+    while (next <= now) next = addDaysInZone(next, intervalDays, timeZone);
     return next;
   }
 
-  private static nextOccurrence(hour: number, minute: number, from: Date): Date {
-    const next = new Date(from);
-    next.setUTCHours(hour, minute, 0, 0);
-    if (next <= from) next.setUTCDate(next.getUTCDate() + 1);
-    return next;
+  private static nextOccurrence(hour: number, minute: number, from: Date, timeZone: string): Date {
+    const today = getZonedParts(from, timeZone);
+    const next = zonedTimeToUtc({ year: today.year, month: today.month, day: today.day, hour, minute, second: 0 }, timeZone);
+    return next <= from ? addDaysInZone(next, 1, timeZone) : next;
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -207,6 +225,7 @@ export class SchedulesService {
   }
 
   private async fireSchedule(schedule: RecurringSchedule) {
+    const timeZone = this.settings.getTimezone();
     try {
       const pick = await this.ensureNextPick(schedule);
 
@@ -242,7 +261,8 @@ export class SchedulesService {
       pick.usedAt = new Date();
       await this.contestRepo.save(pick);
 
-      schedule.nextRunAt = new Date(schedule.nextRunAt.getTime() + schedule.intervalDays * DAY_MS);
+      // Advancing in the configured zone (not +24h per day) keeps the wall-clock send time stable across DST.
+      schedule.nextRunAt = addDaysInZone(schedule.nextRunAt, schedule.intervalDays, timeZone);
       schedule.nextContestId = null;
       await this.repo.save(schedule);
 
@@ -250,7 +270,8 @@ export class SchedulesService {
       const upcoming = await this.ensureNextPick(schedule);
 
       this.logger.log(
-        `Programación #${schedule.id}: enviado "${pick.contestName}", próximo envío ${schedule.nextRunAt.toISOString()}` +
+        `Programación #${schedule.id}: enviado "${pick.contestName}", próximo envío ${formatDateInZone(schedule.nextRunAt, timeZone)} ` +
+          `${timeZoneLabel(schedule.nextRunAt, timeZone)}` +
           `${upcoming ? ` con "${upcoming.contestName}"` : ' (lista agotada)'}.`,
       );
     } catch (err) {

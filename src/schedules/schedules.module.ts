@@ -7,6 +7,7 @@ import { CategoriesModule } from '../categories/categories.module';
 import { ContestsModule } from '../contests/contests.module';
 import { AnnouncementsModule } from '../announcements/announcements.module';
 import { TemplatesModule } from '../templates/templates.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { TemplatesModule } from '../templates/templates.module';
     ContestsModule,
     AnnouncementsModule,
     TemplatesModule,
+    SettingsModule,
   ],
   providers: [SchedulesService],
   exports: [SchedulesService],

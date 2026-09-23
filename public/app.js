@@ -3,6 +3,10 @@ const TOKEN_KEY = 'sisifo_admin_token';
 
 const state = {
   token: sessionStorage.getItem(TOKEN_KEY) || '',
+  // Zone every date in the panel is rendered in, and every hour typed here is interpreted in.
+  // Mirrors the server setting (GET /api/settings); the browser's own zone is deliberately ignored.
+  timezone: 'UTC',
+  timezoneLabel: 'UTC',
   guilds: [],
   guildId: '',
   telegramChats: [],
@@ -495,7 +499,11 @@ document.getElementById('templates-body').addEventListener('click', async (e) =>
 
 function formatDateTime(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString();
+  try {
+    return new Date(iso).toLocaleString('es-CL', { timeZone: state.timezone, dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return new Date(iso).toLocaleString();
+  }
 }
 
 function formatDurationSeconds(seconds) {
@@ -852,9 +860,59 @@ document.getElementById('schedule-add-contest-form').addEventListener('submit', 
   }
 });
 
+// ---------- settings ----------
+
+// Kept ticking so the «hora local del bot» readout isn't a stale snapshot from page load.
+setInterval(() => {
+  const el = document.getElementById('settings-now');
+  if (el) el.textContent = formatDateTime(new Date().toISOString());
+}, 30_000);
+
+function renderTimezone() {
+  document.querySelectorAll('.tz-name').forEach((el) => {
+    el.textContent = `${state.timezone} · ${state.timezoneLabel}`;
+  });
+  document.getElementById('settings-current').textContent = `${state.timezone} (${state.timezoneLabel})`;
+  document.getElementById('settings-timezone').value = state.timezone;
+  document.getElementById('settings-now').textContent = formatDateTime(new Date().toISOString());
+}
+
+function fillTimezoneOptions() {
+  // Available in current browsers only; the field stays a free-text input where it isn't.
+  const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+  document.getElementById('timezone-options').innerHTML = zones.map((z) => `<option value="${z}"></option>`).join('');
+}
+
+async function loadSettings() {
+  const settings = await api('/settings');
+  state.timezone = settings.timezone;
+  state.timezoneLabel = settings.label;
+  renderTimezone();
+}
+
+document.getElementById('settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const timezone = document.getElementById('settings-timezone').value.trim();
+  if (!timezone) return toast('Ingresa una zona horaria.', true);
+  try {
+    const updated = await api('/settings', { method: 'PUT', body: { timezone } });
+    state.timezone = updated.timezone;
+    state.timezoneLabel = updated.label;
+    renderTimezone();
+    // Pending runs were re-anchored server-side, and every date on screen is rendered in the new zone.
+    await Promise.all([loadSchedules(), loadAnnouncements()]);
+    toast(`Zona horaria: ${updated.timezone}. Programaciones reajustadas: ${updated.retimedSchedules}.`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 // ---------- boot ----------
 
 async function initApp() {
+  fillTimezoneOptions();
+  // Settings first: every table below renders its dates in the configured zone.
+  await loadSettings();
   await Promise.all([loadGuilds(), loadCategories(), loadTelegramChats()]);
   fillSubscriptionChannels();
   fillTagRoles();

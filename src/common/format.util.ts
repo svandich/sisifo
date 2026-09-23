@@ -1,3 +1,6 @@
+import { formatDateInZone, formatTimeInZone, timeZoneLabel } from './timezone.util';
+
+// Discord renders <t:...> markup in each viewer's own timezone, so these two need no zone argument.
 export function formatDate(date: Date): string {
   return `<t:${Math.floor(date.getTime() / 1000)}:F>`;
 }
@@ -6,12 +9,13 @@ export function formatTime(date: Date): string {
   return `<t:${Math.floor(date.getTime() / 1000)}:t>`;
 }
 
-export function formatDatePlain(date: Date): string {
-  return date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+// Telegram has no client-side timestamp markup, so these render in the configured zone (see settings).
+export function formatDatePlain(date: Date, timeZone: string): string {
+  return `${formatDateInZone(date, timeZone)} ${timeZoneLabel(date, timeZone)}`;
 }
 
-export function formatTimePlain(date: Date): string {
-  return date.toISOString().slice(11, 16) + ' UTC';
+export function formatTimePlain(date: Date, timeZone: string): string {
+  return `${formatTimeInZone(date, timeZone)} ${timeZoneLabel(date, timeZone)}`;
 }
 
 export function formatDuration(seconds: number): string {

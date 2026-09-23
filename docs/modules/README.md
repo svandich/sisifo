@@ -14,6 +14,7 @@ One file per `src/` directory (plus `app.md` for the root `app.module.ts`/`main.
 | [contests](contests.md) | `src/contests/` |
 | [discord-client](discord-client.md) | `src/discord-client/` |
 | [schedules](schedules.md) | `src/schedules/` |
+| [settings](settings.md) | `src/settings/` |
 | [subscriptions](subscriptions.md) | `src/subscriptions/` |
 | [telegram](telegram.md) | `src/telegram/` |
 | [templates](templates.md) | `src/templates/` |

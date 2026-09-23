@@ -18,10 +18,10 @@ export class RecurringSchedule {
   intervalDays: number;
 
   @Column()
-  hour: number; // 0-23, UTC
+  hour: number; // 0-23, wall clock in the configured time zone (see settings)
 
   @Column()
-  minute: number; // 0-59, UTC
+  minute: number; // 0-59, wall clock in the configured time zone (see settings)
 
   @Column({ default: true })
   active: boolean; // set to false automatically once the contest pool is exhausted

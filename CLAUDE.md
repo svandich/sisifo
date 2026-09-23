@@ -16,6 +16,7 @@ src/common/         → docs/modules/common.md
 src/contests/       → docs/modules/contests.md
 src/discord-client/ → docs/modules/discord-client.md
 src/schedules/      → docs/modules/schedules.md
+src/settings/       → docs/modules/settings.md
 src/subscriptions/  → docs/modules/subscriptions.md
 src/telegram/       → docs/modules/telegram.md
 src/templates/      → docs/modules/templates.md

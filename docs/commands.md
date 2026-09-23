@@ -77,7 +77,7 @@ Discord channels/roles are listed live from the bot's connection. Telegram chats
 |---|---|
 | `{{contest_name}}` | Contest name |
 | `{{platform}}` | Codeforces / AtCoder |
-| `{{start_time}}` | Start date and time (UTC) |
+| `{{start_time}}` | Start date and time — shown in each viewer's own zone on Discord, and in the bot's configured time zone (with its label, e.g. `GMT-3`) on Telegram |
 | `{{duration}}` | Duration (e.g. `2h 30m`) |
 | `{{contest_url}}` | Link to the contest page |
 | `{{tags}}` | Mentions of all users/roles subscribed to be tagged for this category (empty if none) |

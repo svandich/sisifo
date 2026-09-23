@@ -9,6 +9,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { CategoryTagsModule } from '../category-tags/category-tags.module';
 import { DiscordClientModule } from '../discord-client/discord-client.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DiscordClientModule } from '../discord-client/discord-client.module';
     TelegramModule,
     CategoryTagsModule,
     DiscordClientModule,
+    SettingsModule,
   ],
   providers: [AnnouncementsService],
   exports: [AnnouncementsService],

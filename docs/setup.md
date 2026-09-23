@@ -18,6 +18,7 @@ Copy `.env.example` to `.env` and fill in:
 | `DATABASE_PATH` | No | SQLite file path (default: `./data/sisifo.sqlite`) |
 | `TELEGRAM_TOKEN` | No | Token from @BotFather; omit to disable Telegram |
 | `PORT` | No | HTTP port for the admin panel/API (default: `3000`) |
+| `TIMEZONE` | No | IANA time zone used for announcement times, **only on first run** (default: `Chile/Continental`). Afterwards it's stored in the database and changed from the admin panel's «Configuración» tab — editing the env var later has no effect |
 
 ## Install and run
 

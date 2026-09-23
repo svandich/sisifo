@@ -11,6 +11,7 @@ import { TelegramService } from '../telegram/telegram.service';
 import { CategoryTagsService } from '../category-tags/category-tags.service';
 import { ContestsService } from '../contests/contests.service';
 import { DiscordClientService } from '../discord-client/discord-client.service';
+import { SettingsService } from '../settings/settings.service';
 import { formatDate, formatDatePlain, formatDuration, formatTime, formatTimePlain, markdownToHtml } from '../common/format.util';
 import { parseWhen } from '../common/parse-when.util';
 import { DEFAULT_SIMULACION_ADMIN_TEMPLATE, DEFAULT_SIMULACION_PUBLIC_TEMPLATE, DEFAULT_VIRTUAL_TEMPLATE } from '../templates/templates.service';
@@ -55,6 +56,7 @@ export class AnnouncementsService {
     private readonly categoryTags: CategoryTagsService,
     private readonly contests: ContestsService,
     private readonly discordClientService: DiscordClientService,
+    private readonly settings: SettingsService,
   ) {}
 
   async schedule(dto: ScheduleAnnouncementDto): Promise<Announcement> {
@@ -95,17 +97,19 @@ export class AnnouncementsService {
       await this.templates.findOne(dto.guildId, dto.templateName);
     }
 
+    // Wall-clock times the admin types are read in the configured zone, not the server's/UTC.
+    const timeZone = this.settings.getTimezone();
     let scheduledFor: Date;
     let simulationStartTime: Date | undefined;
 
     if (category.type === 'simulacion') {
       if (!dto.cuando) throw new Error('Las simulaciones requieren la hora de inicio de la simulación.');
-      const simStart = parseWhen(dto.cuando);
+      const simStart = parseWhen(dto.cuando, timeZone);
       if (!simStart) throw new Error('Formato de tiempo inválido.');
       simulationStartTime = simStart;
       scheduledFor = new Date(simStart.getTime() - FIVE_MINUTES);
     } else if (dto.cuando) {
-      const parsed = parseWhen(dto.cuando);
+      const parsed = parseWhen(dto.cuando, timeZone);
       if (!parsed) throw new Error('Formato de tiempo inválido.');
       if (contest.phase !== 'UPCOMING') {
         simulationStartTime = parsed;
@@ -180,6 +184,7 @@ export class AnnouncementsService {
       const contestStartTime = announcement.contestStartTime;
       const contestDurationSeconds = announcement.contestDurationSeconds;
       const platform = announcement.contestPlatform;
+      const timeZone = this.settings.getTimezone();
 
       // VP = past contest where the announcement fires at or after the original contest start
       const isVirtual = !isSimulacion && !!announcement.contestStartTime && announcement.contestStartTime <= announcement.scheduledFor;
@@ -197,10 +202,10 @@ export class AnnouncementsService {
       const buildTelegramVars = (includeIdentity: boolean) => ({
         contest_name: includeIdentity ? contestName : '???',
         platform: includeIdentity ? platform : '???',
-        start_time: formatDatePlain(isSimulacion ? simStart : contestStartTime),
+        start_time: formatDatePlain(isSimulacion ? simStart : contestStartTime, timeZone),
         duration: formatDuration(contestDurationSeconds),
         contest_url: includeIdentity ? contestUrl : '',
-        vp_time: formatTimePlain(simStart),
+        vp_time: formatTimePlain(simStart, timeZone),
       });
 
       for (const sub of subs) {

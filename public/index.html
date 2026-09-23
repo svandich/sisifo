@@ -36,6 +36,7 @@
       <button class="tab-btn" data-tab="templates">Plantillas</button>
       <button class="tab-btn" data-tab="announcements">Anuncios</button>
       <button class="tab-btn" data-tab="schedules">Programación recurrente</button>
+      <button class="tab-btn" data-tab="settings">Configuración</button>
     </nav>
 
     <main>
@@ -154,7 +155,7 @@
         <div class="panel-header">
           <h2>Programación recurrente</h2>
           <p class="muted">
-            Cada tantos días, a una hora fija (UTC), se envía un anuncio para la categoría elegida con un concurso al azar
+            Cada tantos días, a una hora fija (<span class="tz-name">…</span>), se envía un anuncio para la categoría elegida con un concurso al azar
             (sin repetir) de la lista que armes abajo. Cuando se acaba la lista, la programación se detiene sola.
             Puedes cambiar la hora de una programación existente sin perder su lista: edita el campo de hora en la tabla
             y presiona «Guardar hora». El concurso del próximo envío se sortea con anticipación y se muestra en la tabla:
@@ -169,7 +170,7 @@
           <button type="submit">Crear programación</button>
         </form>
         <table class="data-table">
-          <thead><tr><th>Categoría</th><th>Cada</th><th>Hora (UTC)</th><th>Próximo envío</th><th>Próximo concurso</th><th>Lista</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Categoría</th><th>Cada</th><th>Hora (<span class="tz-name">…</span>)</th><th>Próximo envío</th><th>Próximo concurso</th><th>Lista</th><th>Estado</th><th></th></tr></thead>
           <tbody id="schedules-body"></tbody>
         </table>
 
@@ -189,6 +190,25 @@
           <tbody id="schedule-contests-body"></tbody>
         </table>
       </section>
+
+      <!-- Settings -->
+      <section id="tab-settings" class="tab-panel">
+        <div class="panel-header">
+          <h2>Configuración</h2>
+          <p class="muted">
+            La zona horaria define cómo se leen las horas que escribes (programaciones recurrentes y el campo
+            «Cuándo» de un anuncio) y cómo se muestran las fechas en los mensajes de Telegram y en este panel.
+            En Discord cada persona ve la hora en su propia zona, así que no depende de esto.
+            Al cambiarla, las programaciones recurrentes existentes se reajustan para mantener su hora de reloj.
+          </p>
+        </div>
+        <form id="settings-form" class="inline-form">
+          <input id="settings-timezone" type="text" list="timezone-options" placeholder="Zona horaria IANA (ej: Chile/Continental)" required />
+          <datalist id="timezone-options"></datalist>
+          <button type="submit">Guardar</button>
+        </form>
+        <p class="muted">Actual: <strong id="settings-current">—</strong> · hora local del bot: <strong id="settings-now">—</strong></p>
+      </section>
     </main>
   </div>
 
@@ -202,7 +222,7 @@
           <select id="schedule-category"></select>
         </label>
         <label>
-          Cuándo <span class="muted">(hora HH:MM, ISO 8601 o relativo: 30m, 2h, 1d)</span>
+          Cuándo <span class="muted">(hora HH:MM en <span class="tz-name">…</span>, ISO 8601 o relativo: 30m, 2h, 1d)</span>
           <input id="schedule-cuando" type="text" placeholder="Opcional salvo simulaciones" />
         </label>
         <label>

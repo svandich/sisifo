@@ -10,7 +10,7 @@ The scheduling and dispatch engine. An `Announcement` row is a snapshot of "send
 
 - `announcements.service.ts` — `AnnouncementsService`. Scheduling, validation, the cron dispatcher, and per-subscription message rendering/sending.
 - `entities/announcement.entity.ts` — `Announcement` TypeORM entity.
-- `announcements.module.ts` — registers the entity, imports [`contests`](contests.md), [`templates`](templates.md), [`categories`](categories.md), [`subscriptions`](subscriptions.md), [`telegram`](telegram.md), [`category-tags`](category-tags.md), [`discord-client`](discord-client.md).
+- `announcements.module.ts` — registers the entity, imports [`contests`](contests.md), [`templates`](templates.md), [`categories`](categories.md), [`subscriptions`](subscriptions.md), [`telegram`](telegram.md), [`category-tags`](category-tags.md), [`discord-client`](discord-client.md), [`settings`](settings.md).
 
 There is no admin/announce command here anymore — scheduling and cancelling happen through [`admin`](admin.md)'s `AnnouncementsController`, which calls straight into this service. [`schedules`](schedules.md) also calls `schedule()` directly (not `scheduleFromContest()`) each time a recurring cycle fires, bypassing the contest-lookup/validation path since it already has a snapshotted contest from its own pool.
 
@@ -43,7 +43,7 @@ There is no admin/announce command here anymore — scheduling and cancelling ha
 - **`normal` category, contest NOT `UPCOMING`, no `cuando`**: rejected — there's no sensible default.
 - Always rejected if the computed `scheduledFor` is in the past.
 
-`parseWhen()` (see [common](common.md)) accepts a bare `HH:MM` time (today, UTC), full ISO 8601, or a relative offset (`30m`, `2h`, `1d`).
+`parseWhen()` (see [common](common.md)) accepts a bare `HH:MM` time (today), a `YYYY-MM-DD HH:MM` date-time, full ISO 8601, or a relative offset (`30m`, `2h`, `1d`). Wall-clock inputs are read in the configured time zone ([settings](settings.md)), which `scheduleFromContest` fetches once (`this.settings.getTimezone()`) before parsing — only inputs carrying their own offset (`...Z`, `...-03:00`) bypass it. `scheduledFor` and `simulationStartTime` are stored as absolute instants, so a later zone change never moves an already-scheduled announcement; it only changes how the time is printed.
 
 ## Dispatch (`dispatch()`, `@Cron(EVERY_MINUTE)`)
 
@@ -52,6 +52,7 @@ There is no admin/announce command here anymore — scheduling and cancelling ha
 3. For each, calls `sendAnnouncement`, which:
    - Resolves `isSimulacion` from the category.
    - Computes `isVirtual`: `normal` category + the snapshotted `contestStartTime <= scheduledFor` (i.e. the announcement fires at/after the contest's real start — this is the VP-reminder case from the timing rules above). When true, falls back to `DEFAULT_VIRTUAL_TEMPLATE` if no custom template resolves.
+   - Renders Telegram timestamps in the configured zone (`formatDatePlain`/`formatTimePlain` take it as an argument, read once per announcement). Discord timestamps stay `<t:…>` markup, which each viewer's client renders in their own zone — so `{{start_time}}` is zone-localized on Discord and configured-zone-with-label (`2026-07-01 19:45 GMT-4`) on Telegram.
    - For **every** subscription of the category (both platforms, mixed together), builds template variables and renders per-subscription:
      - `includeIdentity = !isSimulacion || sub.adminOnly` — this is the actual enforcement point of the "hide contest identity" rule. When false, `contest_name`/`platform` become the literal string `"???"` and `contest_url` becomes empty.
      - `simulacion` categories always use the hardcoded `DEFAULT_SIMULACION_ADMIN_TEMPLATE`/`DEFAULT_SIMULACION_PUBLIC_TEMPLATE` — a per-guild custom `templateName` is never consulted for these, even if one was set on the announcement (it can't be, since `scheduleFromContest` never lets you set `templateName` for a `simulacion` category through the admin UI's normal flow, but nothing enforces that at the service level if called directly).
@@ -70,4 +71,4 @@ There is no admin/announce command here anymore — scheduling and cancelling ha
 
 ## Dependencies
 
-`ContestsModule`, `TemplatesModule`, `CategoriesModule`, `SubscriptionsModule`, `TelegramModule`, `CategoryTagsModule`, `DiscordClientModule`. Imported by [`admin`](admin.md) and [`schedules`](schedules.md).
+`ContestsModule`, `TemplatesModule`, `CategoriesModule`, `SubscriptionsModule`, `TelegramModule`, `CategoryTagsModule`, `DiscordClientModule`, `SettingsModule`. Imported by [`admin`](admin.md) and [`schedules`](schedules.md).

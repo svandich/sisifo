@@ -15,13 +15,14 @@ Root wiring for the whole application: database connection, global config, and t
 
 `TypeOrmModule.forRootAsync` in `app.module.ts` is the single place that lists every TypeORM entity in the app (`entities: [...]`). **Any new entity in any module must be added to this array** or TypeORM will not create its table (schema is `synchronize: true`, i.e. auto-migrated from entity classes — no manual migrations).
 
-Current entities registered here: `Template`, `Announcement`, `Category`, `Subscription`, `CategoryTag`, `TelegramChat`, `TelegramTopic`.
+Current entities registered here: `Template`, `Announcement`, `Category`, `Subscription`, `CategoryTag`, `TelegramChat`, `TelegramTopic`, `RecurringSchedule`, `RecurringScheduleContest`, `Setting`.
 
 ## Behavior notes
 
 - `main.ts` calls `config.getOrThrow<string>('ADMIN_TOKEN')` at boot — the process refuses to start without it, since it's the only thing gating the admin API (see [admin](admin.md)).
 - `app.setGlobalPrefix('api')` applies to every Nest controller route (currently only `AdminModule`'s controllers). Static assets served via `useStaticAssets` are express middleware, not Nest routes, so they're unaffected by the prefix — `public/index.html` is served at `/`, not `/api/`.
 - `DATABASE_PATH` defaults to `./data/sisifo.sqlite`; the `./data` directory is created on boot if missing.
+- `TIMEZONE` is read **only on first run**, to seed the `settings` row (default `Chile/Continental`); after that the stored value wins and the env var is ignored. See [settings](settings.md). Nothing in the app reads the process's own `TZ`, so the container's clock zone doesn't matter.
 - `PORT` defaults to `3000`.
 
 ## Dependencies

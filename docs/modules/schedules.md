@@ -4,14 +4,14 @@
 
 ## Purpose
 
-Recurring, category-wide announcements: "every N days, at a fixed UTC hour, announce a random not-yet-used contest from this hand-picked list." Distinct from [`announcements`](announcements.md), which is one-shot (a specific contest, a specific send time). This module owns the recurrence and the "don't repeat contests" bookkeeping; when a cycle fires, it hands off to `AnnouncementsService.schedule()` to actually create the one-shot `Announcement` row that the existing dispatch cron sends — no duplicate send logic.
+Recurring, category-wide announcements: "every N days, at a fixed hour in the app's configured time zone, announce a random not-yet-used contest from this hand-picked list." Distinct from [`announcements`](announcements.md), which is one-shot (a specific contest, a specific send time). This module owns the recurrence and the "don't repeat contests" bookkeeping; when a cycle fires, it hands off to `AnnouncementsService.schedule()` to actually create the one-shot `Announcement` row that the existing dispatch cron sends — no duplicate send logic.
 
 ## Files
 
 - `schedules.service.ts` — `SchedulesService`: CRUD for schedules and their contest pools, plus the `@Cron(EVERY_MINUTE)` dispatcher that fires due schedules.
 - `entities/recurring-schedule.entity.ts` — `RecurringSchedule` TypeORM entity.
 - `entities/recurring-schedule-contest.entity.ts` — `RecurringScheduleContest` TypeORM entity (the pool).
-- `schedules.module.ts` — registers both entities, imports [`categories`](categories.md), [`contests`](contests.md), [`announcements`](announcements.md), [`templates`](templates.md).
+- `schedules.module.ts` — registers both entities, imports [`categories`](categories.md), [`contests`](contests.md), [`announcements`](announcements.md), [`templates`](templates.md), [`settings`](settings.md).
 
 Scheduling/managing happens only through [`admin`](admin.md)'s `SchedulesController` — there's no bot command for this.
 
@@ -26,7 +26,7 @@ Scheduling/managing happens only through [`admin`](admin.md)'s `SchedulesControl
 | `guildId` | nullable — same role as `Announcement.guildId`: which Discord guild's custom template to resolve, if `templateName` is set |
 | `templateName` | nullable — passed straight through to each fired `Announcement` |
 | `intervalDays` | integer ≥ 1 |
-| `hour`, `minute` | 0-23 / 0-59, UTC — the fixed wall-clock send time |
+| `hour`, `minute` | 0-23 / 0-59 — the fixed wall-clock send time **in the configured time zone** ([settings](settings.md)), not UTC. The column stores only the wall clock, so it survives a zone change; what changes is which instant it maps to |
 | `active` | default `true`. Set to `false` automatically by the dispatcher once the pool has no unused contests left — schedules do **not** auto-reset; an admin must add more contests and reactivate |
 | `nextRunAt` | when the dispatcher should fire this schedule next |
 | `nextContestId` | nullable FK-by-convention to `RecurringScheduleContest.id` — the contest the next run will announce, **committed in advance** instead of drawn at fire time, so an admin can review it and swap or remove it before it goes out. `null` only when the pool has no unused entries left |
@@ -45,10 +45,13 @@ Scheduling/managing happens only through [`admin`](admin.md)'s `SchedulesControl
 
 Fixed wall-clock cadence, not contest-relative: a schedule fires at `nextRunAt` regardless of the picked contest's own start time (the picked contest might already be `FINISHED` by the time it's randomly drawn from the pool — that's expected, not a bug; `AnnouncementsService`'s existing "VP reminder" fallback template handles that case the same way it does for manually-scheduled past contests).
 
-- On `create()`, `nextRunAt` is the next occurrence of `hour:minute` (today if it hasn't passed yet, otherwise tomorrow).
-- After each fire, `nextRunAt += intervalDays` (plain UTC millisecond arithmetic — no DST to account for since everything here is UTC, consistent with `parseWhen`'s `HH:MM` handling elsewhere in the codebase).
+All of the arithmetic below happens **in the configured zone** via [`common`](common.md)'s `timezone.util` (`addDaysInZone`, `withTimeInZone`, `zonedTimeToUtc`), never with raw UTC millisecond math. That's what keeps a 09:00 schedule at 09:00 across a DST change instead of drifting to 08:00 or 10:00 for half the year.
+
+- On `create()`, `nextRunAt` is the next occurrence of `hour:minute` (today if it hasn't passed yet, otherwise tomorrow — "today" meaning the calendar day in the configured zone, which is not necessarily the UTC one).
+- After each fire, `nextRunAt` advances by `intervalDays` **whole local days** (`addDaysInZone`), which is 23, 24 or 25 hours depending on whether a transition fell in between.
 - Reactivating a paused/stopped schedule (`setActive(id, true)`) recomputes `nextRunAt` to the next occurrence if the stored one has already passed, so resuming doesn't trigger a burst of catch-up sends.
-- Editing the time (`updateTime(id, hour, minute)`) keeps the pending run's **date** and only replaces its time of day, so changing the hour never shifts a weekly schedule onto a different weekday. If the new time already passed today (e.g. moving 15:05 → 14:55 on the very day it fires), `nextRunAt` advances by whole `intervalDays` steps until it's in the future — same no-catch-up rule as `setActive`, so retiming a schedule can never make it fire immediately.
+- Changing the app's time zone re-anchors every schedule through `retimeAllForTimezone()` (see below), so `09:00` keeps meaning 09:00 to the humans reading it.
+- Editing the time (`updateTime(id, hour, minute)`) keeps the pending run's **date** (as read in the configured zone — a run stored at 03:00 UTC is "yesterday 23:00" in Chile, and retiming must keep *that* day) and only replaces its time of day, so changing the hour never shifts a weekly schedule onto a different weekday. If the new time already passed today (e.g. moving 15:05 → 14:55 on the very day it fires), `nextRunAt` advances by whole `intervalDays` steps until it's in the future — same no-catch-up rule as `setActive`, so retiming a schedule can never make it fire immediately.
 
 ## Picking the contest (`ensureNextPick`)
 
@@ -71,6 +74,7 @@ It's called from `findAll()` (so the panel always has a pick to display, and row
 - `create(dto)` — validates category type/interval/hour/minute/template, computes initial `nextRunAt`.
 - `findAll()` — all schedules with their pool contests attached (`contests: RecurringScheduleContest[]`), for the admin panel.
 - `setActive(id, active)` — pause/resume.
+- `retimeAllForTimezone()` — recomputes every schedule's `nextRunAt` for the current zone, keeping each one's stored `hour`/`minute` and its place in the cadence. Called by [`admin`](admin.md)'s settings controller right after the zone changes, *not* by [`settings`](settings.md) itself — this module already imports `SettingsModule`, so the reverse dependency would be a cycle.
 - `updateTime(id, hour, minute)` — changes the send time of an existing schedule and recomputes `nextRunAt` per the rule above. Exists so the admin panel can retime a schedule without `delete()` + `create()`, which would destroy the contest pool along with its `used` bookkeeping (already-announced contests would become eligible again).
 - `delete(id)` — deletes the schedule and its entire pool.
 - `addContest(scheduleId, platform, externalId)` — looks up the contest via [`contests`](contests.md), snapshots it into the pool. Rejects duplicates.
@@ -79,4 +83,4 @@ It's called from `findAll()` (so the panel always has a pick to display, and row
 
 ## Dependencies
 
-`CategoriesModule`, `ContestsModule`, `AnnouncementsModule` (for `schedule()`), `TemplatesModule` (to validate `templateName` exists before saving). Imported by [`admin`](admin.md).
+`CategoriesModule`, `ContestsModule`, `AnnouncementsModule` (for `schedule()`), `TemplatesModule` (to validate `templateName` exists before saving), `SettingsModule` (for the time zone all run-time math happens in). Imported by [`admin`](admin.md).
