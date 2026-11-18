@@ -68,6 +68,7 @@ Most of the below used to be admin-gated bot commands (Discord's **Manage Server
 | Menciones (Tags) | Make a Discord role taggable in a category's announcements |
 | Templates | Create/edit/delete per-server (Discord guild) message templates |
 | Announcements | Browse Codeforces/AtCoder contests and schedule an announcement for a category; cancel pending announcements |
+| Encuestas | Recurring native Telegram polls (question + 2–10 options) sent on chosen weekdays at a fixed time to every non-admin Telegram chat subscribed to a category. Non-anonymous by default; «Enviar ahora» sends a test immediately. A run more than 3 h late (bot was down) is skipped |
 
 Discord channels/roles are listed live from the bot's connection. Telegram chats/topics are listed from what the bot has seen in messages — send a message (or `/categorias`) in the target chat/topic at least once so it shows up as a subscription target.
 

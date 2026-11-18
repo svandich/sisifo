@@ -36,6 +36,7 @@
       <button class="tab-btn" data-tab="templates">Plantillas</button>
       <button class="tab-btn" data-tab="announcements">Anuncios</button>
       <button class="tab-btn" data-tab="schedules">Programación recurrente</button>
+      <button class="tab-btn" data-tab="polls">Encuestas</button>
       <button class="tab-btn" data-tab="settings">Configuración</button>
     </nav>
 
@@ -188,6 +189,49 @@
         <table class="data-table">
           <thead><tr><th>Concurso</th><th>Inicio</th><th>Duración</th><th></th></tr></thead>
           <tbody id="schedule-contests-body"></tbody>
+        </table>
+      </section>
+
+      <!-- Recurring Telegram polls -->
+      <section id="tab-polls" class="tab-panel">
+        <div class="panel-header">
+          <h2>Encuestas recurrentes (Telegram)</h2>
+          <p class="muted">
+            Envía una encuesta nativa de Telegram los días de la semana que elijas, a una hora fija (<span class="tz-name">…</span>),
+            a todos los chats de Telegram suscritos a la categoría (excepto las suscripciones <span class="badge admin">admin</span>).
+            Útil para preguntar «¿Participas mañana?» el día antes de un entrenamiento. Si el bot estuvo caído y el envío se atrasa
+            más de 3 horas, ese envío se omite.
+          </p>
+        </div>
+        <form id="poll-form" class="stacked-form">
+          <label class="field">Categoría <select id="poll-category"></select></label>
+          <label class="field">Pregunta <input id="poll-question" type="text" maxlength="300" value="¿Participas mañana?" required /></label>
+          <label class="field">Opciones <span class="muted">(una por línea, entre 2 y 10)</span>
+            <textarea id="poll-options" rows="3" required>Sí
+No</textarea>
+          </label>
+          <div class="field">Días
+            <div id="poll-weekdays" class="weekday-picker">
+              <label class="checkbox"><input type="checkbox" value="1" /> Lun</label>
+              <label class="checkbox"><input type="checkbox" value="2" checked /> Mar</label>
+              <label class="checkbox"><input type="checkbox" value="3" /> Mié</label>
+              <label class="checkbox"><input type="checkbox" value="4" /> Jue</label>
+              <label class="checkbox"><input type="checkbox" value="5" /> Vie</label>
+              <label class="checkbox"><input type="checkbox" value="6" /> Sáb</label>
+              <label class="checkbox"><input type="checkbox" value="0" /> Dom</label>
+            </div>
+          </div>
+          <label class="field">Hora (<span class="tz-name">…</span>) <input id="poll-time" type="time" value="12:00" required /></label>
+          <label class="checkbox"><input id="poll-anonymous" type="checkbox" /> Anónima (no se ve quién votó qué)</label>
+          <label class="checkbox"><input id="poll-multiple" type="checkbox" /> Permitir varias respuestas</label>
+          <div class="form-actions">
+            <button type="submit" id="poll-submit">Crear encuesta</button>
+            <button type="button" id="poll-cancel-edit" class="secondary hidden">Cancelar edición</button>
+          </div>
+        </form>
+        <table class="data-table">
+          <thead><tr><th>Categoría</th><th>Pregunta</th><th>Opciones</th><th>Días</th><th>Hora</th><th>Próximo envío</th><th>Último envío</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="polls-body"></tbody>
         </table>
       </section>
 

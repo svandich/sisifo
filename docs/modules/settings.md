@@ -30,7 +30,7 @@ Why a database row and not just an env var: the zone has to be editable by whoev
 - **First run** (`onModuleInit`): if there's no `timezone` row, one is written from `TIMEZONE` in the environment, or `DEFAULT_TIMEZONE` (`Chile/Continental`) when that's unset or invalid. Later boots just load the stored value. An invalid stored value (e.g. a zone ICU dropped) is logged and reset the same way rather than crashing the app.
 - Validation accepts anything ICU accepts, which includes legacy aliases: `Chile/Continental` is the default and resolves to `America/Santiago`. The string is stored **as typed**, not canonicalized, so the panel shows back what the admin entered.
 - This module requires a Node build with full ICU. The official `node:20-alpine` image (what the `Dockerfile` uses) ships it; a hand-built small-icu Node would silently only know `UTC`, and `setTimezone` would reject everything else.
-- Changing the zone does **not** move already-scheduled one-shot [`announcements`](announcements.md) — those store an absolute instant, which is still the same instant; only its rendering changes. Recurring [`schedules`](schedules.md) *are* re-anchored, because they store a wall-clock `hour`/`minute`; see below.
+- Changing the zone does **not** move already-scheduled one-shot [`announcements`](announcements.md) — those store an absolute instant, which is still the same instant; only its rendering changes. Recurring [`schedules`](schedules.md) and [`polls`](polls.md) *are* re-anchored, because they store a wall-clock `hour`/`minute`; see below.
 
 ## Who uses the time zone
 
@@ -40,10 +40,11 @@ Why a database row and not just an env var: the zone has to be editable by whoev
 | [`common`](common.md) `formatDatePlain`/`formatTimePlain` | Renders Telegram timestamps in this zone, with its short label appended |
 | [`announcements`](announcements.md) | Passes it into both of the above |
 | [`schedules`](schedules.md) | `hour`/`minute` are wall clock in this zone; all `nextRunAt` math happens there (DST-aware) |
+| [`polls`](polls.md) | `weekdays`/`hour`/`minute` are read in this zone, and polls are re-anchored on a zone change like schedules |
 | [`admin`](admin.md) `SettingsController` | `GET`/`PUT /api/settings`, and the panel renders every date in this zone |
 
 Discord messages are **not** on this list: `formatDate`/`formatTime` emit `<t:…>` markup that Discord renders in each viewer's own zone, so they're zone-independent by construction.
 
 ## Dependencies
 
-`TypeOrmModule.forFeature([Setting])` and `ConfigService` (for the `TIMEZONE` seed). Depends on no other domain module — deliberately, since [`announcements`](announcements.md), [`schedules`](schedules.md) and [`admin`](admin.md) all import it, and anything it imported back would be a cycle. That's also why "changing the zone retimes recurring schedules" lives in `SchedulesService.retimeAllForTimezone()` (called by the admin controller after `setTimezone`) instead of inside this service.
+`TypeOrmModule.forFeature([Setting])` and `ConfigService` (for the `TIMEZONE` seed). Depends on no other domain module — deliberately, since [`announcements`](announcements.md), [`schedules`](schedules.md), [`polls`](polls.md) and [`admin`](admin.md) all import it, and anything it imported back would be a cycle. That's also why "changing the zone retimes recurring schedules/polls" lives in `SchedulesService.retimeAllForTimezone()` / `PollsService.retimeAllForTimezone()` (called by the admin controller after `setTimezone`) instead of inside this service.

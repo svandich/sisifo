@@ -24,7 +24,8 @@ This module is a thin HTTP layer: controllers validate the request shape, delega
 | `discord.controller.ts` | `/api/discord` | [`discord-client`](discord-client.md) |
 | `telegram.controller.ts` | `/api/telegram` | [`telegram`](telegram.md)'s `TelegramRegistryService` |
 | `schedules.controller.ts` | `/api/schedules` | [`schedules`](schedules.md) |
-| `settings.controller.ts` | `/api/settings` | [`settings`](settings.md) (+ [`schedules`](schedules.md), see below) |
+| `settings.controller.ts` | `/api/settings` | [`settings`](settings.md) (+ [`schedules`](schedules.md) and [`polls`](polls.md), see below) |
+| `polls.controller.ts` | `/api/polls` | [`polls`](polls.md) |
 | `admin.module.ts` | — | imports every module above and registers all controllers |
 
 The `/api` prefix comes from `app.setGlobalPrefix('api')` in `main.ts`, not from anything in this module.
@@ -78,11 +79,16 @@ All routes below require the `Authorization: Bearer <ADMIN_TOKEN>` header (via `
 | `POST` | `/api/schedules/:id/contests` | `{ platform, externalId }` | Looks up and snapshots the contest into the schedule's pool |
 | `DELETE` | `/api/schedules/:id/contests/:contestId` | — | Fails if that pool entry was already used. Removing the entry that was queued up as `nextContestId` re-draws the pick |
 | `GET` | `/api/settings` | — | `{ timezone, label, now }` — the configured IANA zone, its current short name (`GMT-3`), and the server's clock as ISO. The panel renders every date with it |
-| `PUT` | `/api/settings` | `{ timezone }` | Changes the app-wide time zone. Rejects a zone ICU doesn't know. Returns the same shape plus `retimedSchedules` (how many recurring schedules were re-anchored) |
+| `PUT` | `/api/settings` | `{ timezone }` | Changes the app-wide time zone. Rejects a zone ICU doesn't know. Returns the same shape plus `retimedSchedules` and `retimedPolls` (how many recurring schedules/polls were re-anchored) |
+| `GET` | `/api/polls` | — | All recurring Telegram polls |
+| `POST` | `/api/polls` | `{ categorySlug, question, options: string[], weekdays: number[], hour, minute, isAnonymous?, allowsMultipleAnswers? }` | `weekdays` uses `0` = domingo … `6` = sábado. See [polls](polls.md) for limits and timing |
+| `PATCH` | `/api/polls/:id` | any subset of the `POST` fields, plus `active` | Changing `weekdays` or `hour`/`minute` recomputes `nextRunAt` from now. An empty body is a 400 |
+| `DELETE` | `/api/polls/:id` | — | |
+| `POST` | `/api/polls/:id/send` | — | Sends the poll right now without touching its schedule. Returns `{ sent, targets }`. 400 if there are no targets or nothing was sent |
 
 ## `PUT /api/settings`
 
-The one controller here that calls **two** services on purpose: `SettingsService.setTimezone()`, then `SchedulesService.retimeAllForTimezone()`. Recurring schedules store a wall-clock `hour`/`minute`, so changing the zone changes which instant they mean, and their `nextRunAt` has to be recomputed. That sequencing can't live in `SettingsService` — [`schedules`](schedules.md) imports it, so the reverse dependency would be a cycle — and each half of the work still lives in the service that owns it. Pending one-shot announcements are deliberately left alone: they store absolute instants, so only their *rendering* changes.
+The one controller here that calls several services on purpose: `SettingsService.setTimezone()`, then `SchedulesService.retimeAllForTimezone()` and `PollsService.retimeAllForTimezone()`. Recurring schedules and polls store a wall-clock `hour`/`minute`, so changing the zone changes which instant they mean, and their `nextRunAt` has to be recomputed. That sequencing can't live in `SettingsService`: [`schedules`](schedules.md) and [`polls`](polls.md) import it, so the reverse dependency would be a cycle. Each part of the work still lives in the service that owns it. Pending one-shot announcements are deliberately left alone: they store absolute instants, so only their *rendering* changes.
 
 ## `GET /api/discord/guilds`
 
@@ -96,8 +102,8 @@ Channels are filtered to `ChannelType.GuildText` only (no voice/category/forum c
 
 ## Dependencies
 
-Imports every domain module: `CategoriesModule`, `SubscriptionsModule`, `CategoryTagsModule`, `TemplatesModule`, `AnnouncementsModule`, `ContestsModule`, `DiscordClientModule`, `TelegramModule`, `SchedulesModule`, `SettingsModule`. Imported by [`app`](app.md) (`AppModule`) directly — this is a leaf consumer, nothing imports `AdminModule`.
+Imports every domain module: `CategoriesModule`, `SubscriptionsModule`, `CategoryTagsModule`, `TemplatesModule`, `AnnouncementsModule`, `ContestsModule`, `DiscordClientModule`, `TelegramModule`, `SchedulesModule`, `SettingsModule`, `PollsModule`. Imported by [`app`](app.md) (`AppModule`) directly — this is a leaf consumer, nothing imports `AdminModule`.
 
 ## The frontend
 
-`public/index.html` + `public/app.js` + `public/styles.css` is a hand-written, no-build-step vanilla JS single page that talks to this API. It's not part of `src/` and has no module doc of its own, but changes to any endpoint's request/response shape in this module must be mirrored there — `app.js` hardcodes the shapes above (see e.g. `fillCategorySelects`, `renderSubscriptions`, `loadTemplates`, `renderSchedules`, `loadSettings`). One panel-wide rule worth knowing: `loadSettings()` runs **before** everything else in `initApp()`, because `formatDateTime()` renders every date in `state.timezone` (the server's zone, not the browser's) and the `.tz-name` spans in the schedules/announcement forms are filled from it. There's no shared TypeScript types between the two; keep them in sync by hand.
+`public/index.html` + `public/app.js` + `public/styles.css` is a hand-written, no-build-step vanilla JS single page that talks to this API. It's not part of `src/` and has no module doc of its own, but changes to any endpoint's request/response shape in this module must be mirrored there — `app.js` hardcodes the shapes above (see e.g. `fillCategorySelects`, `renderSubscriptions`, `loadTemplates`, `renderSchedules`, `renderPolls`, `loadSettings`). One panel-wide rule worth knowing: `loadSettings()` runs **before** everything else in `initApp()`, because `formatDateTime()` renders every date in `state.timezone` (the server's zone, not the browser's) and the `.tz-name` spans in the schedules/announcement forms are filled from it. There's no shared TypeScript types between the two; keep them in sync by hand.

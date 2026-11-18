@@ -9,6 +9,7 @@ import { DiscordClientModule } from '../discord-client/discord-client.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { SettingsModule } from '../settings/settings.module';
+import { PollsModule } from '../polls/polls.module';
 import { AuthController } from './auth.controller';
 import { CategoriesController } from './categories.controller';
 import { SubscriptionsController } from './subscriptions.controller';
@@ -20,6 +21,7 @@ import { DiscordController } from './discord.controller';
 import { TelegramController } from './telegram.controller';
 import { SchedulesController } from './schedules.controller';
 import { SettingsController } from './settings.controller';
+import { PollsController } from './polls.controller';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { SettingsController } from './settings.controller';
     TelegramModule,
     SchedulesModule,
     SettingsModule,
+    PollsModule,
   ],
   controllers: [
     AuthController,
@@ -46,6 +49,7 @@ import { SettingsController } from './settings.controller';
     TelegramController,
     SchedulesController,
     SettingsController,
+    PollsController,
   ],
 })
 export class AdminModule {}

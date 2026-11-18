@@ -14,6 +14,7 @@ import { TelegramTopic } from './telegram/entities/telegram-topic.entity';
 import { RecurringSchedule } from './schedules/entities/recurring-schedule.entity';
 import { RecurringScheduleContest } from './schedules/entities/recurring-schedule-contest.entity';
 import { Setting } from './settings/entities/setting.entity';
+import { RecurringPoll } from './polls/entities/recurring-poll.entity';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { Setting } from './settings/entities/setting.entity';
           RecurringSchedule,
           RecurringScheduleContest,
           Setting,
+          RecurringPoll,
         ],
         synchronize: true,
       }),

@@ -13,6 +13,7 @@ One file per `src/` directory (plus `app.md` for the root `app.module.ts`/`main.
 | [common](common.md) | `src/common/` |
 | [contests](contests.md) | `src/contests/` |
 | [discord-client](discord-client.md) | `src/discord-client/` |
+| [polls](polls.md) | `src/polls/` |
 | [schedules](schedules.md) | `src/schedules/` |
 | [settings](settings.md) | `src/settings/` |
 | [subscriptions](subscriptions.md) | `src/subscriptions/` |

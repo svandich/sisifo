@@ -55,6 +55,7 @@ Every incoming message is tracked (`trackChat`) before any command routing, rega
 ## Public API
 
 - `send(chatId, text, threadId?): Promise<void>` — used by [`announcements`](announcements.md) dispatch. No-ops silently if the bot isn't configured (`TELEGRAM_TOKEN` unset) or on any send error (logged, not thrown — one failed Telegram send shouldn't block the dispatch loop).
+- `sendPoll(chatId, question, options, { threadId?, isAnonymous?, allowsMultipleAnswers? }): Promise<boolean>`: used by [`polls`](polls.md). Same never-throw rule as `send`, but it **returns whether the send succeeded**, because the admin panel's "Enviar ahora" reports it. Options go out as Bot API 7.3+ `InputPollOption` objects (`{ text }`). The `@types` package still declares `string[]`, hence the cast.
 
 `TelegramRegistryService`:
 - `trackChat(chatId, title, type)` / `trackTopic(chatId, threadId, title?)` — upserts.
@@ -62,7 +63,7 @@ Every incoming message is tracked (`trackChat`) before any command routing, rega
 
 ## Dependencies
 
-`CategoriesModule`, `SubscriptionsModule`, `CategoryTagsModule` (for `TelegramService`); nothing beyond TypeORM for `TelegramRegistryService`. Imported by [`announcements`](announcements.md) (for `send()`) and [`admin`](admin.md) (for the registry, to list chats/topics).
+`CategoriesModule`, `SubscriptionsModule`, `CategoryTagsModule` (for `TelegramService`); nothing beyond TypeORM for `TelegramRegistryService`. Imported by [`announcements`](announcements.md) (for `send()`), [`polls`](polls.md) (for `sendPoll()`) and [`admin`](admin.md) (for the registry, to list chats/topics).
 
 ## Notes
 

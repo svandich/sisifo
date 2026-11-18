@@ -37,11 +37,11 @@ A subscription marked `adminOnly: true` receives the **full** contest identity (
 
 - `subscribeDiscord(guildId, channelId, categorySlug, adminOnly?)` / `unsubscribeDiscord(channelId, categorySlug, adminOnly?)`
 - `subscribeTelegram(chatId, categorySlug, threadId?, adminOnly?)` / `unsubscribeTelegram(chatId, categorySlug, threadId?, adminOnly?)`
-- `findByCategory(categoryId)` — used by `announcements` dispatch to find who to notify.
+- `findByCategory(categoryId)` — used by `announcements` dispatch to find who to notify, and by [`polls`](polls.md) to find which Telegram chats get a poll.
 - `findByGuild(guildId)` — Discord only, used by `SubscribeCommand`'s `lista` subcommand.
 - `findAll()` — used by the admin panel to render the subscriptions table (all platforms, all categories).
 - `deleteById(id)` — generic delete used by the admin API's `DELETE /api/subscriptions/:id`; works for both platforms since it doesn't need to know platform-specific lookup keys.
 
 ## Dependencies
 
-`CategoriesModule`. Imported by [`announcements`](announcements.md), [`admin`](admin.md), [`bot`](bot.md) (for `SubscribeCommand`), and [`telegram`](telegram.md) (for `/suscribir`/`/desuscribir`).
+`CategoriesModule`. Imported by [`announcements`](announcements.md), [`admin`](admin.md), [`bot`](bot.md) (for `SubscribeCommand`), [`telegram`](telegram.md) (for `/suscribir`/`/desuscribir`), and [`polls`](polls.md) (poll targets).

@@ -15,6 +15,7 @@ src/category-tags/  → docs/modules/category-tags.md
 src/common/         → docs/modules/common.md
 src/contests/       → docs/modules/contests.md
 src/discord-client/ → docs/modules/discord-client.md
+src/polls/          → docs/modules/polls.md
 src/schedules/      → docs/modules/schedules.md
 src/settings/       → docs/modules/settings.md
 src/subscriptions/  → docs/modules/subscriptions.md

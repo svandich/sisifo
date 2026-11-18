@@ -155,6 +155,8 @@ input, select, textarea {
 .stacked-form textarea { resize: vertical; font-family: inherit; }
 
 .checkbox { display: flex; align-items: center; gap: 0.4em; font-size: 0.9em; color: var(--muted); }
+.stacked-form .field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9em; }
+.weekday-picker { display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; }
 
 .form-actions { display: flex; gap: 0.5rem; }
 

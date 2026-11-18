@@ -40,7 +40,7 @@ This is the single most important thing to understand before touching this modul
 
 ## Dependencies
 
-None (TypeORM feature module only). Imported by [`subscriptions`](subscriptions.md), [`category-tags`](category-tags.md), [`announcements`](announcements.md), [`telegram`](telegram.md), and [`admin`](admin.md).
+None (TypeORM feature module only). Imported by [`subscriptions`](subscriptions.md), [`category-tags`](category-tags.md), [`announcements`](announcements.md), [`telegram`](telegram.md), [`polls`](polls.md), and [`admin`](admin.md).
 
 ## Notes
 

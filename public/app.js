@@ -20,6 +20,8 @@ const state = {
   schedules: [],
   expandedSchedule: null,
   scheduleAddContest: null,
+  polls: [],
+  editingPoll: null,
 };
 
 // ---------- helpers ----------
@@ -186,7 +188,7 @@ function renderCategories() {
 
 function fillCategorySelects() {
   const options = state.categories.map((c) => `<option value="${c.slug}">${escapeHtml(c.displayName)}</option>`).join('');
-  for (const id of ['subscription-category', 'tag-category', 'schedule-category']) {
+  for (const id of ['subscription-category', 'tag-category', 'schedule-category', 'poll-category']) {
     const sel = document.getElementById(id);
     const prev = sel.value;
     sel.innerHTML = options || '<option value="">Sin categorías</option>';
@@ -860,6 +862,144 @@ document.getElementById('schedule-add-contest-form').addEventListener('submit', 
   }
 });
 
+// ---------- recurring polls ----------
+
+const WEEKDAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function weekdaysLabel(days) {
+  // Monday-first, which is how people here read a week.
+  return [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => WEEKDAY_NAMES[d]).join(', ');
+}
+
+async function loadPolls() {
+  state.polls = await api('/polls');
+  renderPolls();
+}
+
+function renderPolls() {
+  const body = document.getElementById('polls-body');
+  body.innerHTML = state.polls.length
+    ? state.polls
+        .map(
+          (p) => `
+      <tr>
+        <td>${escapeHtml(categoryName(p.categoryId))}</td>
+        <td>${escapeHtml(p.question)}${p.isAnonymous ? ' <span class="badge">anónima</span>' : ''}${p.allowsMultipleAnswers ? ' <span class="badge">varias</span>' : ''}</td>
+        <td>${p.options.map(escapeHtml).join(' / ')}</td>
+        <td>${weekdaysLabel(p.weekdays)}</td>
+        <td>${pad2(p.hour)}:${pad2(p.minute)}</td>
+        <td>${p.active ? formatDateTime(p.nextRunAt) : '<span class="muted">—</span>'}</td>
+        <td>${formatDateTime(p.lastSentAt)}</td>
+        <td>${p.active ? '<span class="badge admin">activa</span>' : '<span class="badge">pausada</span>'}</td>
+        <td>
+          <button class="secondary" data-edit-poll="${p.id}">Editar</button>
+          <button class="secondary" data-send-poll="${p.id}">Enviar ahora</button>
+          <button class="secondary" data-toggle-poll="${p.id}" data-active="${p.active}">${p.active ? 'Pausar' : 'Reanudar'}</button>
+          <button class="secondary danger" data-delete-poll="${p.id}">Eliminar</button>
+        </td>
+      </tr>`,
+        )
+        .join('')
+    : emptyRow(9);
+}
+
+function resetPollForm() {
+  state.editingPoll = null;
+  document.getElementById('poll-question').value = '¿Participas mañana?';
+  document.getElementById('poll-options').value = 'Sí\nNo';
+  document.getElementById('poll-time').value = '12:00';
+  document.getElementById('poll-anonymous').checked = false;
+  document.getElementById('poll-multiple').checked = false;
+  document.querySelectorAll('#poll-weekdays input').forEach((cb) => (cb.checked = cb.value === '2'));
+  document.getElementById('poll-submit').textContent = 'Crear encuesta';
+  document.getElementById('poll-cancel-edit').classList.add('hidden');
+}
+
+function readPollForm() {
+  const time = document.getElementById('poll-time').value;
+  const [hour, minute] = time ? time.split(':').map(Number) : [null, null];
+  return {
+    categorySlug: document.getElementById('poll-category').value,
+    question: document.getElementById('poll-question').value.trim(),
+    options: document.getElementById('poll-options').value.split('\n').map((o) => o.trim()).filter(Boolean),
+    weekdays: [...document.querySelectorAll('#poll-weekdays input:checked')].map((cb) => Number(cb.value)),
+    hour,
+    minute,
+    isAnonymous: document.getElementById('poll-anonymous').checked,
+    allowsMultipleAnswers: document.getElementById('poll-multiple').checked,
+  };
+}
+
+document.getElementById('poll-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = readPollForm();
+  if (!body.categorySlug) return toast('Selecciona una categoría.', true);
+  if (!body.weekdays.length) return toast('Elige al menos un día.', true);
+  if (body.hour == null) return toast('Ingresa una hora.', true);
+  try {
+    if (state.editingPoll) {
+      const updated = await api(`/polls/${state.editingPoll}`, { method: 'PATCH', body });
+      toast(`Encuesta actualizada. Próximo envío: ${formatDateTime(updated.nextRunAt)}.`);
+    } else {
+      const created = await api('/polls', { method: 'POST', body });
+      toast(`Encuesta creada. Primer envío: ${formatDateTime(created.nextRunAt)}.`);
+    }
+    resetPollForm();
+    await loadPolls();
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+document.getElementById('poll-cancel-edit').addEventListener('click', resetPollForm);
+
+document.getElementById('polls-body').addEventListener('click', async (e) => {
+  const { editPoll, sendPoll, togglePoll, deletePoll } = e.target.dataset;
+  if (editPoll) {
+    const p = state.polls.find((p) => p.id === Number(editPoll));
+    if (!p) return;
+    state.editingPoll = p.id;
+    const cat = state.categories.find((c) => c.id === p.categoryId);
+    if (cat) document.getElementById('poll-category').value = cat.slug;
+    document.getElementById('poll-question').value = p.question;
+    document.getElementById('poll-options').value = p.options.join('\n');
+    document.getElementById('poll-time').value = `${pad2(p.hour)}:${pad2(p.minute)}`;
+    document.getElementById('poll-anonymous').checked = p.isAnonymous;
+    document.getElementById('poll-multiple').checked = p.allowsMultipleAnswers;
+    document.querySelectorAll('#poll-weekdays input').forEach((cb) => (cb.checked = p.weekdays.includes(Number(cb.value))));
+    document.getElementById('poll-submit').textContent = 'Guardar cambios';
+    document.getElementById('poll-cancel-edit').classList.remove('hidden');
+    document.getElementById('poll-question').focus();
+  } else if (sendPoll) {
+    if (!confirm('¿Enviar esta encuesta ahora a los chats suscritos? No cambia el próximo envío programado.')) return;
+    try {
+      const result = await api(`/polls/${sendPoll}/send`, { method: 'POST' });
+      toast(`Encuesta enviada a ${result.sent}/${result.targets} chats.`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (togglePoll) {
+    const active = e.target.dataset.active === 'true';
+    try {
+      await api(`/polls/${togglePoll}`, { method: 'PATCH', body: { active: !active } });
+      await loadPolls();
+      toast(active ? 'Encuesta pausada.' : 'Encuesta reanudada.');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  } else if (deletePoll) {
+    if (!confirm('¿Eliminar esta encuesta recurrente?')) return;
+    try {
+      await api(`/polls/${deletePoll}`, { method: 'DELETE' });
+      if (state.editingPoll === Number(deletePoll)) resetPollForm();
+      await loadPolls();
+      toast('Encuesta eliminada.');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+});
+
 // ---------- settings ----------
 
 // Kept ticking so the «hora local del bot» readout isn't a stale snapshot from page load.
@@ -900,8 +1040,8 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
     state.timezoneLabel = updated.label;
     renderTimezone();
     // Pending runs were re-anchored server-side, and every date on screen is rendered in the new zone.
-    await Promise.all([loadSchedules(), loadAnnouncements()]);
-    toast(`Zona horaria: ${updated.timezone}. Programaciones reajustadas: ${updated.retimedSchedules}.`);
+    await Promise.all([loadSchedules(), loadAnnouncements(), loadPolls()]);
+    toast(`Zona horaria: ${updated.timezone}. Programaciones reajustadas: ${updated.retimedSchedules}, encuestas: ${updated.retimedPolls}.`);
   } catch (err) {
     toast(err.message, true);
   }
@@ -917,7 +1057,7 @@ async function initApp() {
   fillSubscriptionChannels();
   fillTagRoles();
   setSubscriptionPlatformFields();
-  await Promise.all([loadSubscriptions(), loadTags(), loadAnnouncements(), loadTemplates(), loadSchedules()]);
+  await Promise.all([loadSubscriptions(), loadTags(), loadAnnouncements(), loadTemplates(), loadSchedules(), loadPolls()]);
 }
 
 (async function boot() {

@@ -8,6 +8,7 @@ A NestJS app that schedules and delivers competitive programming contest announc
 2. **Subscribe channels** (in the admin panel) — link Discord channels or Telegram chats/topics to a category; mark a subscription as **admin** to receive full contest details in simulaciones
 3. **Schedule an announcement** (in the admin panel) — pick a contest and a category; the bot sends the message at the right time to every subscriber
 4. Optionally, **set up a recurring schedule** (in the admin panel, `normal` categories only) — pick a category, an interval in days, and a fixed hour (in the time zone set under «Configuración», `Chile/Continental` by default); build a list of contests, and every cycle the bot announces a random one from that list (without repeats) to everyone subscribed to the category. Once the list runs out, the schedule stops until you add more contests.
+5. Optionally, **set up a recurring Telegram poll** (in the admin panel, «Encuestas» tab). Pick a category, a question (e.g. «¿Participas mañana?»), its options, the weekday(s) and a time. The bot sends a native Telegram poll to every non-admin Telegram chat subscribed to that category. For example, every Tuesday before a Wednesday training.
 
 Announcements are dispatched every minute via a cron job.
 

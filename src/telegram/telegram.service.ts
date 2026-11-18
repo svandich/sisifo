@@ -45,6 +45,33 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Sends a native Telegram poll. Returns whether it went through (unlike `send`, callers need to
+   * know — the admin panel's "send now" reports it). Errors are logged, never thrown.
+   */
+  async sendPoll(
+    chatId: string,
+    question: string,
+    options: string[],
+    opts: { threadId?: string; isAnonymous?: boolean; allowsMultipleAnswers?: boolean } = {},
+  ): Promise<boolean> {
+    if (!this.bot) return false;
+    try {
+      const form: Record<string, unknown> = {
+        is_anonymous: opts.isAnonymous ?? false,
+        allows_multiple_answers: opts.allowsMultipleAnswers ?? false,
+      };
+      if (opts.threadId) form.message_thread_id = parseInt(opts.threadId, 10);
+      // Bot API 7.3+ takes InputPollOption objects; the typings still say string[].
+      const pollOptions = options.map((text) => ({ text })) as unknown as string[];
+      await this.bot.sendPoll(chatId, question, pollOptions, form as TelegramBot.SendPollOptions);
+      return true;
+    } catch (err) {
+      this.logger.error(`Error enviando encuesta de Telegram a ${chatId}: ${err.message}`);
+      return false;
+    }
+  }
+
   private async handleMessage(msg: TelegramBot.Message) {
     await this.trackChat(msg);
 

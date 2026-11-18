@@ -15,7 +15,7 @@ Root wiring for the whole application: database connection, global config, and t
 
 `TypeOrmModule.forRootAsync` in `app.module.ts` is the single place that lists every TypeORM entity in the app (`entities: [...]`). **Any new entity in any module must be added to this array** or TypeORM will not create its table (schema is `synchronize: true`, i.e. auto-migrated from entity classes — no manual migrations).
 
-Current entities registered here: `Template`, `Announcement`, `Category`, `Subscription`, `CategoryTag`, `TelegramChat`, `TelegramTopic`, `RecurringSchedule`, `RecurringScheduleContest`, `Setting`.
+Current entities registered here: `Template`, `Announcement`, `Category`, `Subscription`, `CategoryTag`, `TelegramChat`, `TelegramTopic`, `RecurringSchedule`, `RecurringScheduleContest`, `Setting`, `RecurringPoll`.
 
 ## Behavior notes
 
